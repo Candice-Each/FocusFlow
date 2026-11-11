@@ -1,0 +1,1 @@
+export const formatTime = (sec: number) => `${Math.floor(sec / 60)}m ${sec % 60}s`;
