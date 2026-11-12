@@ -8,6 +8,7 @@ interface TopBarProps {
   setLeftSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
   rightSidebarOpen: boolean;
   setRightSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
+  onBackToShelf?: () => void;
   readingStats: ReadingStats;
   readingSeconds: number;
   isOffScreenPaused: boolean;
@@ -35,6 +36,7 @@ export function TopBar({
   setLeftSidebarOpen,
   rightSidebarOpen,
   setRightSidebarOpen,
+  onBackToShelf,
   readingStats,
   readingSeconds,
   isOffScreenPaused,
@@ -63,6 +65,7 @@ export function TopBar({
       className="h-14 px-8 pt-2 flex items-center justify-between z-20 shrink-0"
     >
       <div className="flex items-center gap-2.5">
+
         <button
           type="button"
           onClick={() => setLeftSidebarOpen((v) => !v)}
@@ -80,6 +83,17 @@ export function TopBar({
             <line x1="9" y1="4" x2="9" y2="20" />
           </svg>
         </button>
+
+        {onBackToShelf && (
+          <button
+            type="button"
+            onClick={onBackToShelf}
+            className={`text-xs px-3.5 py-1 rounded-full border backdrop-blur-sm flex items-center gap-2 tabular-nums whitespace-nowrap transition hover:opacity-80 ${unifiedSubtleBoxClass}`}
+            title="Back to Shelf"
+          >
+            Shelf
+          </button>
+        )}
 
         <div
           className={`text-xs px-3.5 py-1 rounded-full border backdrop-blur-sm flex items-center gap-2 tabular-nums whitespace-nowrap ${unifiedSubtleBoxClass}`}
