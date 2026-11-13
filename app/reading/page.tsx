@@ -351,15 +351,28 @@ export default function SingleBookReadingInterface() {
   }, [pages, pageIdx, activeLineIdx, activeClauseId, setActiveClauseId]);
 
   const getSentenceTextById = useCallback((targetCid: number) => {
-    const parts: string[] = [];
-    pages.forEach((p) => {
-      p.forEach((row) => {
-        row.segments.forEach((seg) => {
-          if (seg.clauseId === targetCid) parts.push(seg.text.trim());
-        });
-      });
-    });
-    return parts.join(" ").trim();
+    const segments = pages.flatMap((p) =>
+      p.flatMap((row) => row.segments)
+    );
+    const targetIndex = segments.findIndex((seg) => seg.clauseId === targetCid);
+    if (targetIndex < 0) return "";
+    const endsSentence = (text: string) => /[.!?。！？…][\"'”’)]*$/.test(text.trim());
+
+    let startIndex = targetIndex;
+    while (startIndex > 0 && !endsSentence(segments[startIndex - 1].text)) {
+      startIndex -= 1;
+    }
+    let endIndex = targetIndex;
+    while (endIndex < segments.length - 1 && !endsSentence(segments[endIndex].text)) {
+      endIndex += 1;
+    }
+
+    return segments
+      .slice(startIndex, endIndex + 1)
+      .map((seg) => seg.text.trim())
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
   }, [pages]);
 
   const currentLines = pages[pageIdx] ?? [];
@@ -369,6 +382,11 @@ export default function SingleBookReadingInterface() {
     const seg = activeRow?.segments.find((s) => s.clauseId === activeClauseId) ?? activeRow?.segments[0];
     return seg ? seg.text.trim() : getSentenceTextById(activeClauseId);
   }, [currentLines, activeLineIdx, activeClauseId, getSentenceTextById]);
+
+  const faceAssistanceSourceText =
+    facePrompt?.kind === "understanding"
+      ? getSentenceTextById(facePrompt.targetClauseId) || getActiveSentenceText()
+      : getActiveSentenceText();
 
   const toggleTtsReading = useCallback((readSingleSentence = false) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
@@ -991,6 +1009,7 @@ export default function SingleBookReadingInterface() {
         capture={faceBaselineCapture}
         readingDifficultySignal={readingDifficultySignal}
         breakRemainingSeconds={breakRemainingSeconds}
+        assistanceSourceText={faceAssistanceSourceText}
         demoMode={faceDemoMode}
         isNight={isNight}
         onDismissPrompt={dismissFacePrompt}

@@ -45,6 +45,7 @@ export interface ActiveFacePrompt {
   kind: FacePromptKind;
   reason: string;
   demo: boolean;
+  targetClauseId: number;
 }
 
 interface UseFaceBehaviorOptions {
@@ -288,10 +289,11 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
       kind,
       reason: "Manually requested in face-assist demo mode.",
       demo: true,
+      targetClauseId: activeClauseId,
     };
     activePromptRef.current = prompt;
     setActivePrompt(prompt);
-  }, []);
+  }, [activeClauseId]);
 
   const startRestBreak = useCallback(() => {
     clearActivePrompt();
@@ -439,6 +441,7 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
           kind: decision.kind,
           reason: decision.reason,
           demo: false,
+          targetClauseId: activeClauseId,
         };
         activePromptRef.current = prompt;
         setActivePrompt(prompt);
@@ -448,6 +451,7 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
     return () => window.clearInterval(timer);
   }, [
     analysisConfig,
+    activeClauseId,
     cameraStatus,
     capture.status,
     demoMode,

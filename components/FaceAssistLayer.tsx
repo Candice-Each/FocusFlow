@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import type {
   FaceAnalysisObservation,
   FacePromptKind,
@@ -10,6 +10,11 @@ import type {
   ActiveFacePrompt,
   BaselineCaptureState,
 } from "@/hooks/useFaceBehavior";
+import {
+  extractKeyTerms,
+  simplifyLocally,
+  translateToChinese,
+} from "@/lib/reading-assistance";
 
 interface FaceAssistLayerProps {
   prompt: ActiveFacePrompt | null;
@@ -18,6 +23,7 @@ interface FaceAssistLayerProps {
   capture: BaselineCaptureState;
   readingDifficultySignal: boolean;
   breakRemainingSeconds: number;
+  assistanceSourceText: string;
   demoMode: boolean;
   isNight: boolean;
   onDismissPrompt: () => void;
@@ -44,7 +50,7 @@ const PROMPT_COPY: Record<
 > = {
   understanding: {
     eyebrow: "Optional assistance",
-    title: "Need help with this paragraph?",
+    title: "Need help with this sentence?",
     body:
       "A sustained baseline-relative facial change occurred together with a separate reading-difficulty signal.",
   },
@@ -62,23 +68,17 @@ const PROMPT_COPY: Record<
   },
 };
 
-const ASSISTANCE_COPY = {
-  simplify: {
-    title: "Simplified explanation",
-    body:
-      "FocusFlow waits for a persistent pattern instead of reacting to one facial movement. Assistance is offered only when a separate reading signal occurs at the same time.",
-  },
-  translate: {
-    title: "中文释义",
-    body:
-      "FocusFlow 不会把一次面部动作直接判断为困惑。只有持续变化与独立的阅读困难信号同时出现时，系统才会提供可关闭的理解辅助。",
-  },
-  terms: {
-    title: "Key terms",
-    body:
-      "Personal baseline: the reader's own reference range. Multimodal gate: a rule requiring evidence from more than one input channel.",
-  },
-};
+type AssistanceMode = "simplify" | "translate" | "terms";
+
+interface AssistanceResultState {
+  mode: AssistanceMode;
+  title: string;
+  sourceText: string;
+  body: string;
+  note: string;
+  loading: boolean;
+  targetClauseId: number;
+}
 
 export function FaceAssistLayer(props: FaceAssistLayerProps) {
   const {
@@ -88,6 +88,7 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
     capture,
     readingDifficultySignal,
     breakRemainingSeconds,
+    assistanceSourceText,
     demoMode,
     isNight,
     onDismissPrompt,
@@ -99,10 +100,11 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
     onCancelBaseline,
     onRequestDemoPrompt,
   } = props;
-  const [assistanceResult, setAssistanceResult] = useState<
-    keyof typeof ASSISTANCE_COPY | null
-  >(null);
+  const [assistanceResult, setAssistanceResult] =
+    useState<AssistanceResultState | null>(null);
   const [inspectorOpen, setInspectorOpen] = useState(false);
+  const anchoredCardRef = useRef<HTMLElement | null>(null);
+  const assistanceRequestIdRef = useRef(0);
 
   const surface = isNight
     ? "border-stone-700 bg-stone-950/95 text-stone-100"
@@ -111,9 +113,119 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
     ? "border-stone-700 bg-stone-900 text-stone-200"
     : "border-stone-200 bg-stone-50 text-stone-700";
 
-  const showAssistance = (mode: keyof typeof ASSISTANCE_COPY) => {
-    setAssistanceResult(mode);
-    onDismissPrompt();
+  const anchoredClauseId =
+    prompt?.kind === "understanding"
+      ? prompt.targetClauseId
+      : assistanceResult?.targetClauseId ?? null;
+
+  useLayoutEffect(() => {
+    const card = anchoredCardRef.current;
+    if (!card || anchoredClauseId === null) return;
+    const target = document.querySelector<HTMLElement>(
+      `[data-focusflow-clause-id="${anchoredClauseId}"]`
+    );
+    if (!target) return;
+
+    const resetPosition = () => {
+      card.style.removeProperty("left");
+      card.style.removeProperty("top");
+      card.style.removeProperty("right");
+      card.style.removeProperty("bottom");
+    };
+    const updatePosition = () => {
+      const targetRect = target.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      const margin = 16;
+      const gap = 10;
+      const cardWidth = Math.min(cardRect.width || 420, window.innerWidth - margin * 2);
+      const cardHeight = cardRect.height || 240;
+      let left = Math.min(
+        Math.max(margin, targetRect.left),
+        window.innerWidth - cardWidth - margin
+      );
+      let top = targetRect.bottom + gap;
+      if (top + cardHeight > window.innerHeight - margin) {
+        top = targetRect.top - cardHeight - gap;
+      }
+      top = Math.min(
+        Math.max(margin, top),
+        Math.max(margin, window.innerHeight - cardHeight - margin)
+      );
+      left = Math.max(margin, left);
+      card.style.left = `${Math.round(left)}px`;
+      card.style.top = `${Math.round(top)}px`;
+      card.style.right = "auto";
+      card.style.bottom = "auto";
+    };
+
+    updatePosition();
+    const observer = new ResizeObserver(updatePosition);
+    observer.observe(target);
+    observer.observe(card);
+    window.addEventListener("resize", updatePosition);
+    window.addEventListener("scroll", updatePosition, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", updatePosition);
+      window.removeEventListener("scroll", updatePosition, true);
+      resetPosition();
+    };
+  }, [anchoredClauseId, assistanceResult?.body, assistanceResult?.loading]);
+
+  const showAssistance = async (mode: AssistanceMode) => {
+    const sourceText = assistanceSourceText.trim();
+    const targetClauseId = prompt?.targetClauseId ?? -1;
+    const requestId = ++assistanceRequestIdRef.current;
+
+    if (mode === "simplify") {
+      setAssistanceResult({
+        mode,
+        title: "Simplified explanation",
+        sourceText,
+        body: simplifyLocally(sourceText),
+        note: "Created locally with plain-language rewriting rules.",
+        loading: false,
+        targetClauseId,
+      });
+      return;
+    }
+
+    if (mode === "terms") {
+      const terms = extractKeyTerms(sourceText);
+      setAssistanceResult({
+        mode,
+        title: "Key terms",
+        sourceText,
+        body: terms.length
+          ? terms.map((item) => `${item.term} — ${item.definition}`).join("\n\n")
+          : "No specialist terms were detected in this sentence.",
+        note: "Terms were extracted locally from the current sentence.",
+        loading: false,
+        targetClauseId,
+      });
+      return;
+    }
+
+    setAssistanceResult({
+      mode,
+      title: "中文翻译",
+      sourceText,
+      body: "Preparing local translation…",
+      note: "Checking the browser's built-in translation capability.",
+      loading: true,
+      targetClauseId,
+    });
+    const translation = await translateToChinese(sourceText);
+    if (assistanceRequestIdRef.current !== requestId) return;
+    setAssistanceResult({
+      mode,
+      title: "中文翻译",
+      sourceText,
+      body: translation.text,
+      note: translation.note,
+      loading: false,
+      targetClauseId,
+    });
   };
 
   return (
@@ -256,8 +368,9 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
         </div>
       )}
 
-      {prompt && (
+      {prompt && !assistanceResult && (
         <aside
+          ref={prompt.kind === "understanding" ? anchoredCardRef : undefined}
           aria-live="polite"
           className={`fixed bottom-12 right-6 z-[70] w-[min(420px,calc(100vw-3rem))] rounded-2xl border p-5 shadow-2xl backdrop-blur-xl ${surface}`}
         >
@@ -283,17 +396,22 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
           <p className="mt-2 text-xs leading-relaxed opacity-75">
             {PROMPT_COPY[prompt.kind].body}
           </p>
+          {prompt.kind === "understanding" && assistanceSourceText && (
+            <p className={`mt-3 line-clamp-2 rounded-xl border px-3 py-2 text-[11px] leading-relaxed ${subtle}`}>
+              “{assistanceSourceText}”
+            </p>
+          )}
 
           <div className="mt-4 flex flex-wrap gap-2">
             {prompt.kind === "understanding" && (
               <>
-                <button type="button" onClick={() => showAssistance("simplify")} className="rounded-xl bg-stone-900 px-3 py-2 text-xs font-medium text-white">
+                <button type="button" onClick={() => void showAssistance("simplify")} className="rounded-xl bg-stone-900 px-3 py-2 text-xs font-medium text-white">
                   Simplify
                 </button>
-                <button type="button" onClick={() => showAssistance("translate")} className={`rounded-xl border px-3 py-2 text-xs ${subtle}`}>
+                <button type="button" onClick={() => void showAssistance("translate")} className={`rounded-xl border px-3 py-2 text-xs ${subtle}`}>
                   Translate
                 </button>
-                <button type="button" onClick={() => showAssistance("terms")} className={`rounded-xl border px-3 py-2 text-xs ${subtle}`}>
+                <button type="button" onClick={() => void showAssistance("terms")} className={`rounded-xl border px-3 py-2 text-xs ${subtle}`}>
                   Key terms
                 </button>
               </>
@@ -330,22 +448,41 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
       )}
 
       {assistanceResult && (
-        <aside className={`fixed bottom-12 right-6 z-[69] w-[min(420px,calc(100vw-3rem))] rounded-2xl border p-5 shadow-xl ${surface}`}>
+        <aside
+          ref={anchoredCardRef}
+          aria-live="polite"
+          className={`fixed bottom-12 right-6 z-[70] max-h-[min(460px,calc(100vh-2rem))] w-[min(420px,calc(100vw-3rem))] overflow-y-auto rounded-2xl border p-5 shadow-xl backdrop-blur-xl ${surface}`}
+        >
           <div className="flex items-start justify-between gap-4">
             <div>
               <p className="text-[10px] uppercase tracking-[0.18em] opacity-50">
-                Prototype content
+                Current sentence assistance
               </p>
               <h2 className="mt-1 font-serif text-xl">
-                {ASSISTANCE_COPY[assistanceResult].title}
+                {assistanceResult.title}
               </h2>
             </div>
-            <button type="button" onClick={() => setAssistanceResult(null)} className="px-2 opacity-50 hover:opacity-100">
+            <button
+              type="button"
+              onClick={() => {
+                assistanceRequestIdRef.current += 1;
+                setAssistanceResult(null);
+                onDismissPrompt();
+              }}
+              className="px-2 opacity-50 hover:opacity-100"
+              aria-label="Close assistance result"
+            >
               ✕
             </button>
           </div>
-          <p className="mt-3 text-xs leading-relaxed opacity-75">
-            {ASSISTANCE_COPY[assistanceResult].body}
+          <p className={`mt-3 rounded-xl border px-3 py-2 text-[11px] leading-relaxed opacity-70 ${subtle}`}>
+            “{assistanceResult.sourceText}”
+          </p>
+          <p className="mt-3 whitespace-pre-line text-xs leading-relaxed opacity-85">
+            {assistanceResult.body}
+          </p>
+          <p className="mt-3 border-t border-stone-300/25 pt-2 text-[10px] leading-relaxed opacity-50">
+            {assistanceResult.loading ? "Working locally…" : assistanceResult.note}
           </p>
         </aside>
       )}
@@ -368,7 +505,7 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
 
       {demoMode && (
         <aside
-          className={`fixed bottom-5 left-5 z-[65] rounded-2xl border shadow-xl backdrop-blur-xl ${surface} ${
+          className={`fixed bottom-5 left-24 z-[65] rounded-2xl border shadow-xl backdrop-blur-xl ${surface} ${
             inspectorOpen ? "w-80 p-4" : "w-auto px-4 py-3"
           }`}
         >

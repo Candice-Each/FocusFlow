@@ -169,6 +169,7 @@ export function ReadingView({
                     return (
                       <React.Fragment key={sIdx}>
                         <span
+                          data-focusflow-clause-id={seg.clauseId}
                           onClick={(e) => {
                             const rect = e.currentTarget.getBoundingClientRect();
                             const ratio =
