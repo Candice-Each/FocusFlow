@@ -17,7 +17,7 @@ export const DEFAULT_FACE_ANALYSIS_CONFIG: Readonly<FaceAnalysisConfig> = {
   unavailableConfidenceBelow: 0.35,
   goodConfidenceAtOrAbove: 0.72,
   sessionWarmUpMs: 90_000,
-  smoothingTimeConstantMs: 650,
+  smoothingTimeConstantMs: 400,
   maxUpdateGapMs: 1_000,
   postureYawThresholdDeg: 15,
   posturePitchThresholdDeg: 12,
@@ -26,14 +26,15 @@ export const DEFAULT_FACE_ANALYSIS_CONFIG: Readonly<FaceAnalysisConfig> = {
   postureFaceCenterYThreshold: 0.1,
   postureFaceWidthRatioThreshold: 0.25,
   postureSustainMs: 15_000,
-  strainBrowDownDelta: 0.12,
-  strainEyeSquintDelta: 0.12,
-  strainMouthPressDelta: 0.12,
-  strainJawOpenDelta: 0.18,
-  strainBlinkDelta: 0.16,
-  strainPrimaryMinimumSignals: 2,
-  strainSupportingMinimumWithOnePrimary: 1,
-  strainSustainMs: 3_000,
+  strainBrowDownDelta: 0.07,
+  strainEyeSquintDelta: 0.08,
+  strainMouthPressDelta: 0.08,
+  strainJawOpenDelta: 0.14,
+  strainBlinkDelta: 0.14,
+  strainPrimaryMinimumSignals: 1,
+  strainSupportingMinimumWithOnePrimary: 0,
+  strainSustainMs: 2_000,
+  strainReleaseGraceMs: 450,
 };
 
 function finiteOrZero(value: number): number {
@@ -105,6 +106,7 @@ export function createFaceAnalysisState(sessionStartedAtMs: number): FaceAnalysi
     smoothed: null,
     postureConditionSinceMs: null,
     strainConditionSinceMs: null,
+    strainLastEvidenceAtMs: null,
   };
 }
 
@@ -236,6 +238,7 @@ export function updateFaceAnalysis(
       smoothed,
       postureConditionSinceMs: null,
       strainConditionSinceMs: null,
+      strainLastEvidenceAtMs: null,
     };
     return {
       state,
@@ -265,12 +268,24 @@ export function updateFaceAnalysis(
   if (Math.abs(relative.blink) >= config.strainBlinkDelta) supportingStrainSignals.push("blink-change");
   if (relative.jawOpen >= config.strainJawOpenDelta) supportingStrainSignals.push("jaw-open");
   const activeStrainSignals = [...primaryStrainSignals, ...supportingStrainSignals];
+  // A sustained primary signal can form a candidate. It still cannot request
+  // assistance by itself: the prompt policy also requires reading evidence.
   const strainExceeded =
     primaryStrainSignals.length >= config.strainPrimaryMinimumSignals ||
     (primaryStrainSignals.length >= 1 &&
       supportingStrainSignals.length >= config.strainSupportingMinimumWithOnePrimary);
-  const strainConditionSinceMs = strainExceeded
-    ? previous.strainConditionSinceMs ?? nowMs
+  const strainWithinReleaseGrace =
+    !strainExceeded &&
+    previous.strainLastEvidenceAtMs !== null &&
+    nowMs - previous.strainLastEvidenceAtMs <= config.strainReleaseGraceMs;
+  const strainConditionSinceMs =
+    strainExceeded || strainWithinReleaseGrace
+      ? previous.strainConditionSinceMs ?? nowMs
+      : null;
+  const strainLastEvidenceAtMs = strainExceeded
+    ? nowMs
+    : strainWithinReleaseGrace
+    ? previous.strainLastEvidenceAtMs
     : null;
 
   const postureConditionMs = conditionDuration(nowMs, postureConditionSinceMs);
@@ -282,6 +297,7 @@ export function updateFaceAnalysis(
     smoothed,
     postureConditionSinceMs,
     strainConditionSinceMs,
+    strainLastEvidenceAtMs,
   };
 
   return {

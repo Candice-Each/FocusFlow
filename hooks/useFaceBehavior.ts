@@ -63,6 +63,7 @@ interface UseFaceBehaviorOptions {
 
 const BASELINE_DURATION_MS = 5_000;
 const BASELINE_MINIMUM_SAMPLES = 15;
+const BASELINE_TIMEOUT_MS = 15_000;
 const FACE_UPDATE_INTERVAL_MS = 200;
 
 function asFaceTelemetry(telemetry: GazeTelemetry): FaceTelemetry {
@@ -110,7 +111,7 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
             ...DEFAULT_FACE_ANALYSIS_CONFIG,
             sessionWarmUpMs: 3_000,
             postureSustainMs: 4_000,
-            strainSustainMs: 2_500,
+            strainSustainMs: 1_500,
           }
         : { ...DEFAULT_FACE_ANALYSIS_CONFIG },
     [demoMode]
@@ -148,9 +149,15 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
   const promptStateRef = useRef(createFacePromptPolicyState(promptConfig));
   const baselineRef = useRef<PersonalFaceBaseline | null>(null);
   const activePromptRef = useRef<ActiveFacePrompt | null>(null);
-  const disabledPromptKindsRef = useRef<Set<FacePromptKind>>(new Set());
+  // Screen-position monitoring remains available for inspection, but automatic
+  // posture prompts are off by default because they are not part of the
+  // understanding-assistance gate.
+  const disabledPromptKindsRef = useRef<Set<FacePromptKind>>(new Set(["posture"]));
+  const suppressedUntilClearRef = useRef<Set<FacePromptKind>>(new Set());
   const captureRef = useRef<{
     startedAtMs: number;
+    lastTickAtMs: number;
+    validElapsedMs: number;
     samples: FaceTelemetry[];
   } | null>(null);
   const positionRef = useRef<{
@@ -199,7 +206,13 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
       });
       return false;
     }
-    captureRef.current = { startedAtMs: performance.now(), samples: [] };
+    const now = performance.now();
+    captureRef.current = {
+      startedAtMs: now,
+      lastTickAtMs: now,
+      validElapsedMs: 0,
+      samples: [],
+    };
     setCapture({
       status: "collecting",
       progress: 0,
@@ -214,6 +227,26 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
     setActivePrompt(null);
   }, []);
 
+  const dismissPrompt = useCallback(() => {
+    const prompt = activePromptRef.current;
+    if (prompt && !prompt.demo && prompt.kind !== "rest") {
+      suppressedUntilClearRef.current.add(prompt.kind);
+    }
+    clearActivePrompt();
+  }, [clearActivePrompt]);
+
+  const cancelBaselineCapture = useCallback(() => {
+    captureRef.current = null;
+    setCapture({
+      status: baselineRef.current ? "ready" : "idle",
+      progress: baselineRef.current ? 100 : 0,
+      sampleCount: baselineRef.current?.sampleCount ?? 0,
+      message: baselineRef.current
+        ? "Previous personal baseline retained."
+        : "Baseline recording cancelled.",
+    });
+  }, []);
+
   const snoozePrompt = useCallback(
     (minutes: number) => {
       const prompt = activePromptRef.current;
@@ -222,6 +255,9 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
       const cooldown = promptConfig.cooldownMs[prompt.kind];
       promptStateRef.current.lastIssuedAtMs[prompt.kind] =
         now - cooldown + minutes * 60_000;
+      if (prompt.kind !== "rest") {
+        suppressedUntilClearRef.current.add(prompt.kind);
+      }
       clearActivePrompt();
     },
     [clearActivePrompt, promptConfig]
@@ -258,38 +294,49 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
 
       const captureSession = captureRef.current;
       if (captureSession) {
-        if (telemetry && trackingQuality === "Good" && cameraStatus === "Active") {
+        const tickElapsed = Math.min(500, Math.max(0, now - captureSession.lastTickAtMs));
+        captureSession.lastTickAtMs = now;
+        const reliableFrame =
+          telemetry && trackingQuality === "Good" && cameraStatus === "Active";
+        if (reliableFrame && telemetry) {
           captureSession.samples.push(asFaceTelemetry(telemetry));
+          captureSession.validElapsedMs += tickElapsed;
         }
-        const elapsed = now - captureSession.startedAtMs;
-        const progress = Math.min(100, Math.round((elapsed / BASELINE_DURATION_MS) * 100));
+        const wallElapsed = now - captureSession.startedAtMs;
+        const timeProgress = captureSession.validElapsedMs / BASELINE_DURATION_MS;
+        const progress = Math.min(100, Math.round(timeProgress * 100));
         setCapture((previous) => ({
           ...previous,
           progress,
           sampleCount: captureSession.samples.length,
+          message: reliableFrame
+            ? "Recording your natural reading position and expression."
+            : "Recording paused — centre your face and improve lighting.",
         }));
-        if (elapsed >= BASELINE_DURATION_MS) {
+        if (
+          captureSession.validElapsedMs >= BASELINE_DURATION_MS &&
+          captureSession.samples.length >= BASELINE_MINIMUM_SAMPLES
+        ) {
           captureRef.current = null;
-          if (captureSession.samples.length >= BASELINE_MINIMUM_SAMPLES) {
-            const nextBaseline = createPersonalFaceBaseline(captureSession.samples, now);
-            baselineRef.current = nextBaseline;
-            setBaseline(nextBaseline);
-            engineStateRef.current = createFaceAnalysisState(now);
-            promptStateRef.current = createFacePromptPolicyState(promptConfig);
-            setCapture({
-              status: "ready",
-              progress: 100,
-              sampleCount: captureSession.samples.length,
-              message: "Personal baseline ready for this browser session.",
-            });
-          } else {
-            setCapture({
-              status: "failed",
-              progress: 0,
-              sampleCount: captureSession.samples.length,
-              message: "Not enough reliable samples. Improve lighting and try again.",
-            });
-          }
+          const nextBaseline = createPersonalFaceBaseline(captureSession.samples, now);
+          baselineRef.current = nextBaseline;
+          setBaseline(nextBaseline);
+          engineStateRef.current = createFaceAnalysisState(now);
+          promptStateRef.current = createFacePromptPolicyState(promptConfig);
+          setCapture({
+            status: "ready",
+            progress: 100,
+            sampleCount: captureSession.samples.length,
+            message: "Personal baseline ready for this browser session.",
+          });
+        } else if (wallElapsed >= BASELINE_TIMEOUT_MS) {
+          captureRef.current = null;
+          setCapture({
+            status: "failed",
+            progress: 0,
+            sampleCount: captureSession.samples.length,
+            message: "Recording timed out. Improve lighting and keep your face in view.",
+          });
         }
       }
 
@@ -304,7 +351,11 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
 
       const pageVisible = document.visibilityState === "visible";
       const effectiveReadingActive =
-        enabled && readingActive && pageVisible && !breakActive;
+        enabled &&
+        readingActive &&
+        pageVisible &&
+        !breakActive &&
+        !captureSession;
       const update = updateFaceAnalysis(
         engineStateRef.current,
         {
@@ -333,11 +384,32 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
         previous === nextReadingDifficulty ? previous : nextReadingDifficulty
       );
 
+      if (!update.observation.postureDeviationCandidate) {
+        suppressedUntilClearRef.current.delete("posture");
+      }
+      if (
+        !update.observation.cognitiveStrainCandidate ||
+        !nextReadingDifficulty
+      ) {
+        suppressedUntilClearRef.current.delete("understanding");
+      }
+
+      const policyObservation = {
+        ...update.observation,
+        postureDeviationCandidate:
+          !disabledPromptKindsRef.current.has("posture") &&
+          !suppressedUntilClearRef.current.has("posture") &&
+          update.observation.postureDeviationCandidate,
+        cognitiveStrainCandidate:
+          !suppressedUntilClearRef.current.has("understanding") &&
+          update.observation.cognitiveStrainCandidate,
+      };
+
       const promptUpdate = updateFacePromptPolicy(
         promptStateRef.current,
         {
           nowMs: now,
-          observation: update.observation,
+          observation: policyObservation,
           readingDifficultySignal: nextReadingDifficulty,
           readingActive: effectiveReadingActive,
           promptsAllowed:
@@ -382,7 +454,8 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
     activePrompt,
     breakRemainingSeconds,
     startBaselineCapture,
-    dismissPrompt: clearActivePrompt,
+    cancelBaselineCapture,
+    dismissPrompt,
     snoozePrompt,
     disablePromptKind,
     requestDemoPrompt,

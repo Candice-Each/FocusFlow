@@ -277,6 +277,7 @@ export default function SingleBookReadingInterface() {
     activePrompt: facePrompt,
     breakRemainingSeconds,
     startBaselineCapture,
+    cancelBaselineCapture,
     dismissPrompt: dismissFacePrompt,
     snoozePrompt: snoozeFacePrompt,
     disablePromptKind,
@@ -989,6 +990,7 @@ export default function SingleBookReadingInterface() {
         onDisablePromptKind={disablePromptKind}
         onStartRestBreak={startRestBreak}
         onStartBaseline={startBaselineCapture}
+        onCancelBaseline={cancelBaselineCapture}
         onRequestDemoPrompt={requestDemoPrompt}
       />
 

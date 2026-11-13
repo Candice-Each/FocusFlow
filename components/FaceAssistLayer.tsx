@@ -25,6 +25,7 @@ interface FaceAssistLayerProps {
   onDisablePromptKind: (kind: FacePromptKind) => void;
   onStartRestBreak: () => void;
   onStartBaseline: () => boolean;
+  onCancelBaseline: () => void;
   onRequestDemoPrompt: (kind: FacePromptKind) => void;
 }
 
@@ -93,6 +94,7 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
     onDisablePromptKind,
     onStartRestBreak,
     onStartBaseline,
+    onCancelBaseline,
     onRequestDemoPrompt,
   } = props;
   const [assistanceResult, setAssistanceResult] = useState<
@@ -114,6 +116,66 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
 
   return (
     <>
+      {capture.status === "collecting" && (
+        <div className="fixed inset-0 z-[85] grid place-items-center bg-stone-950/60 px-6 backdrop-blur-sm">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="face-baseline-title"
+            className={`w-full max-w-lg rounded-3xl border p-7 shadow-2xl ${surface}`}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-50">
+              Personal calibration
+            </p>
+            <h2 id="face-baseline-title" className="mt-2 font-serif text-3xl">
+              Recording your reading baseline
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed opacity-70">
+              Sit in a comfortable reading position, look naturally at the text,
+              and relax your eyebrows, eyes and mouth. There is no need to hold a
+              special expression.
+            </p>
+
+            <div className={`mt-5 rounded-2xl border p-4 ${subtle}`}>
+              <div className="flex items-center justify-between text-xs">
+                <span>Reliable samples</span>
+                <strong>{capture.sampleCount}</strong>
+              </div>
+              <div className="mt-2 flex items-center justify-between text-xs">
+                <span>Tracking</span>
+                <strong className={observation.trackingGate === "good" ? "text-emerald-600" : "text-amber-600"}>
+                  {observation.trackingGate}
+                </strong>
+              </div>
+              <div className="mt-4 h-2 overflow-hidden rounded-full bg-stone-300/35">
+                <div
+                  className="h-full rounded-full bg-emerald-500 transition-all duration-200"
+                  style={{ width: `${capture.progress}%` }}
+                />
+              </div>
+              <div className="mt-2 flex justify-between text-xs tabular-nums">
+                <span className="opacity-65">{capture.message}</span>
+                <strong>{capture.progress}%</strong>
+              </div>
+            </div>
+
+            <div className="mt-5 flex items-center justify-between gap-4">
+              <p className="text-[11px] leading-relaxed opacity-50">
+                Progress pauses automatically if tracking quality drops. Only
+                numerical features are retained for this session.
+              </p>
+              <button
+                type="button"
+                onClick={onCancelBaseline}
+                className={`shrink-0 rounded-xl border px-4 py-2 text-xs ${subtle}`}
+              >
+                Cancel
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {prompt && (
         <aside
           aria-live="polite"
@@ -240,8 +302,12 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
                 <div className="flex justify-between"><span>Analysis</span><strong>{PHASE_LABELS[observation.phase]}</strong></div>
                 <div className="mt-1 flex justify-between"><span>Tracking gate</span><strong>{observation.trackingGate}</strong></div>
                 <div className="mt-1 flex justify-between"><span>Facial candidate</span><strong>{observation.cognitiveStrainCandidate ? "Yes" : "No"}</strong></div>
+                {observation.activeStrainSignals.length > 0 && (
+                  <div className="mt-1 leading-relaxed opacity-60">
+                    Signals: {observation.activeStrainSignals.join(", ")} · {(observation.strainConditionMs / 1000).toFixed(1)}s
+                  </div>
+                )}
                 <div className="mt-1 flex justify-between"><span>Reading difficulty</span><strong>{readingDifficultySignal ? "Yes" : "No"}</strong></div>
-                <div className="mt-1 flex justify-between"><span>Posture candidate</span><strong>{observation.postureDeviationCandidate ? "Yes" : "No"}</strong></div>
               </div>
 
               <div>
@@ -270,7 +336,7 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
               </div>
 
               <p className="border-t border-stone-300/25 pt-2 leading-relaxed opacity-50">
-                Local numeric features only. Raw video is not stored. Demo thresholds are shortened for testing.
+                Local numeric features only. Raw video is not stored. Demo thresholds are shortened for testing. Automatic posture prompts are off by default.
               </p>
             </div>
           )}

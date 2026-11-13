@@ -212,7 +212,11 @@ export function SensingCard(props: SensingCardProps) {
       <div className="pt-2 border-t border-stone-300/40 grid grid-cols-2 gap-2">
         <button
           type="button"
-          disabled={!modelReady || noCameraMode}
+          disabled={
+            !modelReady ||
+            noCameraMode ||
+            faceBaselineCaptureStatus === "collecting"
+          }
           onClick={startCalibration}
           className="py-1.5 px-2 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white text-xs font-medium transition whitespace-nowrap"
         >
@@ -220,7 +224,11 @@ export function SensingCard(props: SensingCardProps) {
         </button>
         <button
           type="button"
-          disabled={!modelReady || noCameraMode}
+          disabled={
+            !modelReady ||
+            noCameraMode ||
+            faceBaselineCaptureStatus === "collecting"
+          }
           onClick={calibratePersonalFaceBaseline}
           className={`py-1.5 px-2 rounded-xl border text-xs font-medium disabled:opacity-40 transition whitespace-nowrap ${unifiedSubtleBoxClass}`}
         >

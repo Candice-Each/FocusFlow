@@ -78,6 +78,7 @@ export interface FaceAnalysisConfig {
   strainPrimaryMinimumSignals: number;
   strainSupportingMinimumWithOnePrimary: number;
   strainSustainMs: number;
+  strainReleaseGraceMs: number;
 }
 
 export interface FaceAnalysisState {
@@ -87,6 +88,7 @@ export interface FaceAnalysisState {
   smoothed: FaceFeatureVector | null;
   postureConditionSinceMs: number | null;
   strainConditionSinceMs: number | null;
+  strainLastEvidenceAtMs: number | null;
 }
 
 export interface FaceFrameInput {
