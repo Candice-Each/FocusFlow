@@ -109,7 +109,7 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
       demoMode
         ? {
             ...DEFAULT_FACE_ANALYSIS_CONFIG,
-            sessionWarmUpMs: 3_000,
+            sessionWarmUpMs: 1_000,
             postureSustainMs: 4_000,
             strainSustainMs: 1_500,
           }

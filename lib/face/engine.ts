@@ -16,7 +16,7 @@ import type {
 export const DEFAULT_FACE_ANALYSIS_CONFIG: Readonly<FaceAnalysisConfig> = {
   unavailableConfidenceBelow: 0.35,
   goodConfidenceAtOrAbove: 0.72,
-  sessionWarmUpMs: 90_000,
+  sessionWarmUpMs: 3_000,
   smoothingTimeConstantMs: 400,
   maxUpdateGapMs: 1_000,
   postureYawThresholdDeg: 15,
