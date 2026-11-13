@@ -282,14 +282,11 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
           setContinuousFaceState("Stable");
         }
 
-        if (uiConfigRef.current.showReturnConfirm) {
-          if (tel.jawOpen > 0.35 || relPitch > 12) {
-            setIsOffScreenPaused(false);
-            setShowReturnConfirm(false);
-            setMultimodalTriggerState("Resumed via Face");
-          }
-          return;
-        }
+        // Returning to the camera must not resume reading implicitly. A normal
+        // head movement or an open mouth can otherwise satisfy the gesture
+        // thresholds as soon as the reader sits down. Keep the session paused
+        // until the reader explicitly chooses Resume in the return banner.
+        if (uiConfigRef.current.showReturnConfirm) return;
 
         // Priority 2: Mouth-open trigger
         if (uiConfigRef.current.gestureControl && tel.jawOpen > 0.32) {

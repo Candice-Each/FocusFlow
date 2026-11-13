@@ -1,6 +1,8 @@
 export interface GazeTelemetry {
   features: number[]; yawDeg: number; pitchDeg: number; rollDeg: number;
   blink: number; jawOpen: number; browDown: number;
+  eyeSquint: number; mouthPress: number;
+  faceWidth: number; faceCenterX: number; faceCenterY: number;
   rU: number; rV: number; lU: number; lV: number;
   lookH: number; lookV: number;
 }

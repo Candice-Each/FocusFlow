@@ -10,6 +10,7 @@ import type {
   WinState,
 } from "@/lib/types";
 import type { BgTheme, FontFamily, TextColor } from "@/lib/theme";
+import type { FaceAnalysisPhase } from "@/lib/face/types";
 import { SpeedCard } from "./cards/SpeedCard";
 import { SensingCard } from "./cards/SensingCard";
 import { SettingsCard } from "./cards/SettingsCard";
@@ -40,6 +41,18 @@ interface RightSidebarProps {
   setWinHeatmap: React.Dispatch<React.SetStateAction<WinState>>;
   faceAssist: boolean;
   setFaceAssist: React.Dispatch<React.SetStateAction<boolean>>;
+  faceBehaviorEnabled: boolean;
+  setFaceBehaviorEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  faceAnalysisPhase: FaceAnalysisPhase;
+  faceCandidate: boolean;
+  readingDifficultySignal: boolean;
+  faceBaselineCaptureStatus:
+    | "idle"
+    | "instructions"
+    | "collecting"
+    | "ready"
+    | "failed";
+  faceBaselineCaptureProgress: number;
   noCameraMode: boolean;
   setNoCameraMode: React.Dispatch<React.SetStateAction<boolean>>;
   modelReady: boolean;
@@ -132,6 +145,13 @@ export function RightSidebar(props: RightSidebarProps) {
     setWinHeatmap,
     faceAssist,
     setFaceAssist,
+    faceBehaviorEnabled,
+    setFaceBehaviorEnabled,
+    faceAnalysisPhase,
+    faceCandidate,
+    readingDifficultySignal,
+    faceBaselineCaptureStatus,
+    faceBaselineCaptureProgress,
     noCameraMode,
     setNoCameraMode,
     modelReady,
@@ -325,6 +345,13 @@ export function RightSidebar(props: RightSidebarProps) {
             setWinHeatmap={setWinHeatmap}
             faceAssist={faceAssist}
             setFaceAssist={setFaceAssist}
+            faceBehaviorEnabled={faceBehaviorEnabled}
+            setFaceBehaviorEnabled={setFaceBehaviorEnabled}
+            faceAnalysisPhase={faceAnalysisPhase}
+            faceCandidate={faceCandidate}
+            readingDifficultySignal={readingDifficultySignal}
+            faceBaselineCaptureStatus={faceBaselineCaptureStatus}
+            faceBaselineCaptureProgress={faceBaselineCaptureProgress}
             noCameraMode={noCameraMode}
             setNoCameraMode={setNoCameraMode}
             modelReady={modelReady}
