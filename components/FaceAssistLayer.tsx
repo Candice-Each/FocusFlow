@@ -24,6 +24,7 @@ interface FaceAssistLayerProps {
   onSnoozePrompt: (minutes: number) => void;
   onDisablePromptKind: (kind: FacePromptKind) => void;
   onStartRestBreak: () => void;
+  onRequestBaseline: () => void;
   onStartBaseline: () => boolean;
   onCancelBaseline: () => void;
   onRequestDemoPrompt: (kind: FacePromptKind) => void;
@@ -93,6 +94,7 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
     onSnoozePrompt,
     onDisablePromptKind,
     onStartRestBreak,
+    onRequestBaseline,
     onStartBaseline,
     onCancelBaseline,
     onRequestDemoPrompt,
@@ -100,7 +102,7 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
   const [assistanceResult, setAssistanceResult] = useState<
     keyof typeof ASSISTANCE_COPY | null
   >(null);
-  const [inspectorOpen, setInspectorOpen] = useState(true);
+  const [inspectorOpen, setInspectorOpen] = useState(false);
 
   const surface = isNight
     ? "border-stone-700 bg-stone-950/95 text-stone-100"
@@ -116,6 +118,84 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
 
   return (
     <>
+      {capture.status === "instructions" && (
+        <div className="fixed inset-0 z-[85] grid place-items-center bg-stone-950/60 px-6 backdrop-blur-sm">
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="face-baseline-instructions-title"
+            className={`w-full max-w-lg rounded-3xl border p-7 shadow-2xl ${surface}`}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-[0.2em] opacity-50">
+              Personal calibration
+            </p>
+            <h2
+              id="face-baseline-instructions-title"
+              className="mt-2 font-serif text-3xl"
+            >
+              Before recording your baseline
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed opacity-70">
+              FocusFlow needs five seconds of your normal reading position and
+              facial movement as a personal reference. It is not asking you to
+              make a particular expression.
+            </p>
+
+            <ol className={`mt-5 space-y-3 rounded-2xl border p-4 text-sm ${subtle}`}>
+              <li className="flex gap-3">
+                <strong className="opacity-45">1</strong>
+                <span>Sit as you normally read and keep your full face in view.</span>
+              </li>
+              <li className="flex gap-3">
+                <strong className="opacity-45">2</strong>
+                <span>Use steady lighting and keep the camera still.</span>
+              </li>
+              <li className="flex gap-3">
+                <strong className="opacity-45">3</strong>
+                <span>Relax your face and look naturally at the paragraph.</span>
+              </li>
+            </ol>
+
+            <div className="mt-4 flex items-center justify-between text-xs">
+              <span className="opacity-65">Current tracking</span>
+              <strong
+                className={
+                  observation.trackingGate === "good"
+                    ? "text-emerald-600"
+                    : "text-amber-600"
+                }
+              >
+                {observation.trackingGate}
+              </strong>
+            </div>
+            <p className="mt-2 text-[11px] leading-relaxed opacity-55">
+              {capture.message} Only numerical features are kept for this browser
+              session; raw video is not stored.
+            </p>
+
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={onCancelBaseline}
+                className={`rounded-xl border px-4 py-2 text-xs ${subtle}`}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={onStartBaseline}
+                disabled={observation.trackingGate !== "good"}
+                className="rounded-xl bg-stone-900 px-4 py-2 text-xs font-medium text-white disabled:cursor-not-allowed disabled:opacity-35"
+              >
+                {observation.trackingGate === "good"
+                  ? "Start baseline"
+                  : "Waiting for tracking"}
+              </button>
+            </div>
+          </section>
+        </div>
+      )}
+
       {capture.status === "collecting" && (
         <div className="fixed inset-0 z-[85] grid place-items-center bg-stone-950/60 px-6 backdrop-blur-sm">
           <section
@@ -287,7 +367,11 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
       )}
 
       {demoMode && (
-        <aside className={`fixed bottom-5 left-5 z-[65] w-80 rounded-2xl border p-4 shadow-xl backdrop-blur-xl ${surface}`}>
+        <aside
+          className={`fixed bottom-5 left-5 z-[65] rounded-2xl border shadow-xl backdrop-blur-xl ${surface} ${
+            inspectorOpen ? "w-80 p-4" : "w-auto px-4 py-3"
+          }`}
+        >
           <button
             type="button"
             onClick={() => setInspectorOpen((value) => !value)}
@@ -319,7 +403,7 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
                   <div className="h-full bg-emerald-500 transition-all" style={{ width: `${capture.status === "ready" ? 100 : capture.progress}%` }} />
                 </div>
                 <p className="mt-1 leading-relaxed opacity-55">{capture.message}</p>
-                <button type="button" onClick={onStartBaseline} disabled={capture.status === "collecting"} className="mt-2 rounded-lg bg-stone-900 px-3 py-1.5 text-[11px] text-white disabled:opacity-40">
+                <button type="button" onClick={onRequestBaseline} disabled={capture.status === "collecting"} className="mt-2 rounded-lg bg-stone-900 px-3 py-1.5 text-[11px] text-white disabled:opacity-40">
                   {capture.status === "collecting" ? "Recording…" : baseline ? "Re-record baseline" : "Record 5s baseline"}
                 </button>
               </div>

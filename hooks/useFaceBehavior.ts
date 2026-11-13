@@ -35,7 +35,7 @@ const EMPTY_OBSERVATION: FaceAnalysisObservation = {
 };
 
 export interface BaselineCaptureState {
-  status: "idle" | "collecting" | "ready" | "failed";
+  status: "idle" | "instructions" | "collecting" | "ready" | "failed";
   progress: number;
   sampleCount: number;
   message: string;
@@ -195,14 +195,26 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
     }
   }, [pageIdx, activeLineIdx, activeClauseId]);
 
+  const requestBaselineCapture = useCallback(() => {
+    captureRef.current = null;
+    setCapture({
+      status: "instructions",
+      progress: baselineRef.current ? 100 : 0,
+      sampleCount: baselineRef.current?.sampleCount ?? 0,
+      message:
+        "Review the recording requirements, then start when tracking is ready.",
+    });
+  }, []);
+
   const startBaselineCapture = useCallback(() => {
     const telemetry = latestTelemetryRef.current;
     if (!telemetry || trackingQuality !== "Good" || cameraStatus !== "Active") {
       setCapture({
-        status: "failed",
-        progress: 0,
-        sampleCount: 0,
-        message: "A clearly visible, well-lit face is required before recording.",
+        status: "instructions",
+        progress: baselineRef.current ? 100 : 0,
+        sampleCount: baselineRef.current?.sampleCount ?? 0,
+        message:
+          "Waiting for good tracking. Centre your face and improve the lighting.",
       });
       return false;
     }
@@ -355,6 +367,7 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
         readingActive &&
         pageVisible &&
         !breakActive &&
+        capture.status !== "instructions" &&
         !captureSession;
       const update = updateFaceAnalysis(
         engineStateRef.current,
@@ -436,6 +449,7 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
   }, [
     analysisConfig,
     cameraStatus,
+    capture.status,
     demoMode,
     enabled,
     isCalibrated,
@@ -453,6 +467,7 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
     readingDifficultySignal,
     activePrompt,
     breakRemainingSeconds,
+    requestBaselineCapture,
     startBaselineCapture,
     cancelBaselineCapture,
     dismissPrompt,

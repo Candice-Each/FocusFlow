@@ -276,6 +276,7 @@ export default function SingleBookReadingInterface() {
     readingDifficultySignal,
     activePrompt: facePrompt,
     breakRemainingSeconds,
+    requestBaselineCapture,
     startBaselineCapture,
     cancelBaselineCapture,
     dismissPrompt: dismissFacePrompt,
@@ -555,12 +556,19 @@ export default function SingleBookReadingInterface() {
   );
 
   const calibratePersonalFaceBaseline = useCallback(() => {
-    if (startBaselineCapture()) {
+    requestBaselineCapture();
+    setMultimodalTriggerState("Baseline Instructions");
+  }, [requestBaselineCapture]);
+
+  const beginPersonalFaceBaseline = useCallback(() => {
+    const started = startBaselineCapture();
+    if (started) {
       setMultimodalTriggerState("Recording Personal Baseline");
       showToast("Baseline Recording Started", "Read naturally for five seconds");
     } else {
       showToast("Baseline Failed", "Improve lighting and keep your face clearly visible");
     }
+    return started;
   }, [showToast, startBaselineCapture]);
 
   const startCalibration = useCallback(() => {
@@ -989,7 +997,8 @@ export default function SingleBookReadingInterface() {
         onSnoozePrompt={snoozeFacePrompt}
         onDisablePromptKind={disablePromptKind}
         onStartRestBreak={startRestBreak}
-        onStartBaseline={startBaselineCapture}
+        onRequestBaseline={requestBaselineCapture}
+        onStartBaseline={beginPersonalFaceBaseline}
         onCancelBaseline={cancelBaselineCapture}
         onRequestDemoPrompt={requestDemoPrompt}
       />

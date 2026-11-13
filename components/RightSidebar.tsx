@@ -46,7 +46,12 @@ interface RightSidebarProps {
   faceAnalysisPhase: FaceAnalysisPhase;
   faceCandidate: boolean;
   readingDifficultySignal: boolean;
-  faceBaselineCaptureStatus: "idle" | "collecting" | "ready" | "failed";
+  faceBaselineCaptureStatus:
+    | "idle"
+    | "instructions"
+    | "collecting"
+    | "ready"
+    | "failed";
   faceBaselineCaptureProgress: number;
   noCameraMode: boolean;
   setNoCameraMode: React.Dispatch<React.SetStateAction<boolean>>;
