@@ -19,6 +19,7 @@ import type {
 import { createGazeTrackingState } from "@/lib/types";
 import { useHeatmapRenderer } from "@/hooks/useHeatmapRenderer";
 import { useGazeTracking } from "@/hooks/useGazeTracking";
+import { useFaceBehavior } from "@/hooks/useFaceBehavior";
 import { usePagination } from "@/hooks/usePagination";
 
 import { TopBar } from "@/components/TopBar";
@@ -32,6 +33,7 @@ import { PaginationFooter } from "@/components/PaginationFooter";
 import { BottomLeftSliders } from "@/components/BottomLeftSliders";
 import { BuyModal } from "@/components/modals/BuyModal";
 import { NotesModal } from "@/components/modals/NotesModal";
+import { FaceAssistLayer } from "@/components/FaceAssistLayer";
 
 export default function SingleBookReadingInterface() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -76,6 +78,8 @@ export default function SingleBookReadingInterface() {
 
   const [gestureControl, setGestureControl] = useState(true);
   const [faceAssist, setFaceAssist] = useState(true);
+  const [faceBehaviorEnabled, setFaceBehaviorEnabled] = useState(true);
+  const [faceDemoMode, setFaceDemoMode] = useState(false);
   const [showReticle, setShowReticle] = useState(true);
   const [showGazeCursor, setShowGazeCursor] = useState(true);
   const [bgBlur, setBgBlur] = useState(false);
@@ -150,8 +154,12 @@ export default function SingleBookReadingInterface() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    const demoTimer = window.setTimeout(
+      () => setFaceDemoMode(params.get("faceDemo") === "1"),
+      0
+    );
     const bookId = params.get("book");
-    if (!bookId) return;
+    if (!bookId) return () => window.clearTimeout(demoTimer);
     
     // 只要带了 book 参数，就允许返回 Shelf
     setBackToShelfVisible(true);
@@ -162,6 +170,7 @@ export default function SingleBookReadingInterface() {
       setCustomTitle(book.title);
       setRawText(book.content);
     }
+    return () => window.clearTimeout(demoTimer);
   }, []);
 
   const isNight = bgTheme === "Night";
@@ -259,6 +268,75 @@ export default function SingleBookReadingInterface() {
     uiInteractingRef,
     isDraggingSliderRef,
   });
+
+  const {
+    baseline: personalFaceBaseline,
+    observation: faceObservation,
+    capture: faceBaselineCapture,
+    readingDifficultySignal,
+    activePrompt: facePrompt,
+    breakRemainingSeconds,
+    startBaselineCapture,
+    dismissPrompt: dismissFacePrompt,
+    snoozePrompt: snoozeFacePrompt,
+    disablePromptKind,
+    requestDemoPrompt,
+    startRestBreak,
+  } = useFaceBehavior({
+    latestTelemetryRef,
+    trackingQuality,
+    cameraStatus,
+    enabled: faceBehaviorEnabled && !noCameraMode,
+    readingActive:
+      !isOffScreenPaused && !showReturnConfirm && !isCalibrating,
+    promptsBlocked: showReturnConfirm || isCalibrating,
+    isCalibrated,
+    pageIdx,
+    activeLineIdx,
+    activeClauseId,
+    demoMode: faceDemoMode,
+  });
+
+  useEffect(() => {
+    if (!personalFaceBaseline) return;
+    const timer = window.setTimeout(
+      () =>
+        setFaceBaseline({
+          yaw: Math.round(personalFaceBaseline.yawDeg),
+          pitch: Math.round(personalFaceBaseline.pitchDeg),
+          roll: Math.round(personalFaceBaseline.rollDeg),
+          jaw: personalFaceBaseline.jawOpen,
+        }),
+      0
+    );
+    return () => window.clearTimeout(timer);
+  }, [personalFaceBaseline]);
+
+  useEffect(() => {
+    let nextState = "Idle";
+    if (!faceBehaviorEnabled || noCameraMode) nextState = "Face Support Off";
+    else if (facePrompt) nextState = `Prompt: ${facePrompt.kind}`;
+    else if (faceObservation.cognitiveStrainCandidate && readingDifficultySignal)
+      nextState = "Understanding Gate Eligible";
+    else if (faceObservation.cognitiveStrainCandidate)
+      nextState = "Facial Candidate Only";
+    else if (faceObservation.phase === "tracking-limited")
+      nextState = "Analysis Paused: Limited";
+    else if (faceObservation.phase === "tracking-unavailable")
+      nextState = "Analysis Paused: Unavailable";
+    const timer = window.setTimeout(
+      () => setMultimodalTriggerState(nextState),
+      0
+    );
+    return () => window.clearTimeout(timer);
+  }, [
+    faceBehaviorEnabled,
+    faceObservation.cognitiveStrainCandidate,
+    faceObservation.phase,
+    facePrompt,
+    noCameraMode,
+    readingDifficultySignal,
+  ]);
 
   useEffect(() => {
     const row = pages[pageIdx]?.[activeLineIdx];
@@ -476,23 +554,13 @@ export default function SingleBookReadingInterface() {
   );
 
   const calibratePersonalFaceBaseline = useCallback(() => {
-    const tel = latestTelemetryRef.current;
-    if (!tel) {
-      showToast("Baseline Failed", "Ensure your face is visible in the camera frame");
-      return;
+    if (startBaselineCapture()) {
+      setMultimodalTriggerState("Recording Personal Baseline");
+      showToast("Baseline Recording Started", "Read naturally for five seconds");
+    } else {
+      showToast("Baseline Failed", "Improve lighting and keep your face clearly visible");
     }
-    setFaceBaseline({
-      yaw: tel.yawDeg,
-      pitch: tel.pitchDeg,
-      roll: tel.rollDeg,
-      jaw: tel.jawOpen,
-    });
-    setMultimodalTriggerState("Baseline Locked");
-    showToast(
-      "Face Baseline Calibrated",
-      `Reference pose: Yaw ${tel.yawDeg} deg / Pitch ${tel.pitchDeg} deg / Roll ${tel.rollDeg} deg`
-    );
-  }, [latestTelemetryRef, showToast]);
+  }, [showToast, startBaselineCapture]);
 
   const startCalibration = useCallback(() => {
     calibSamplesRef.current = { X: [], Y: [] };
@@ -783,6 +851,13 @@ export default function SingleBookReadingInterface() {
         setWinHeatmap={setWinHeatmap}
         faceAssist={faceAssist}
         setFaceAssist={setFaceAssist}
+        faceBehaviorEnabled={faceBehaviorEnabled}
+        setFaceBehaviorEnabled={setFaceBehaviorEnabled}
+        faceAnalysisPhase={faceObservation.phase}
+        faceCandidate={faceObservation.cognitiveStrainCandidate}
+        readingDifficultySignal={readingDifficultySignal}
+        faceBaselineCaptureStatus={faceBaselineCapture.status}
+        faceBaselineCaptureProgress={faceBaselineCapture.progress}
         noCameraMode={noCameraMode}
         setNoCameraMode={setNoCameraMode}
         modelReady={modelReady}
@@ -898,6 +973,23 @@ export default function SingleBookReadingInterface() {
         onDismissGuide={() => setDismissGuideBanner(true)}
         unifiedSurfaceClass={unifiedSurfaceClass}
         unifiedSubtleBoxClass={unifiedSubtleBoxClass}
+      />
+
+      <FaceAssistLayer
+        prompt={facePrompt}
+        observation={faceObservation}
+        baseline={personalFaceBaseline}
+        capture={faceBaselineCapture}
+        readingDifficultySignal={readingDifficultySignal}
+        breakRemainingSeconds={breakRemainingSeconds}
+        demoMode={faceDemoMode}
+        isNight={isNight}
+        onDismissPrompt={dismissFacePrompt}
+        onSnoozePrompt={snoozeFacePrompt}
+        onDisablePromptKind={disablePromptKind}
+        onStartRestBreak={startRestBreak}
+        onStartBaseline={startBaselineCapture}
+        onRequestDemoPrompt={requestDemoPrompt}
       />
 
       <PaginationFooter

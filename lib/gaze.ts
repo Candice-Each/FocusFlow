@@ -19,6 +19,12 @@ export function extractGazeTelemetry(res: FaceLandmarkerResult): GazeTelemetry |
   const blink = Math.max(getBs("eyeBlinkLeft"), getBs("eyeBlinkRight"));
   const jawOpen = getBs("jawOpen");
   const browDown = Math.max(getBs("browDownLeft"), getBs("browDownRight"));
+  const eyeSquint = (getBs("eyeSquintLeft") + getBs("eyeSquintRight")) * 0.5;
+  const mouthPress = (getBs("mouthPressLeft") + getBs("mouthPressRight")) * 0.5;
+  const xs = lm.slice(0, 468).map((point) => point.x);
+  const ys = lm.slice(0, 468).map((point) => point.y);
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
   const rEye = projectEyeLocal(lm, 33, 133, 468);
   const lEye = projectEyeLocal(lm, 362, 263, 473);
   const lookHoriz = getBs("eyeLookOutLeft") - getBs("eyeLookInLeft") +
@@ -36,7 +42,10 @@ export function extractGazeTelemetry(res: FaceLandmarkerResult): GazeTelemetry |
     yawDeg: Math.round((yaw * 180) / Math.PI),
     pitchDeg: Math.round((pitch * 180) / Math.PI),
     rollDeg: Math.round((roll * 180) / Math.PI),
-    blink, jawOpen, browDown,
+    blink, jawOpen, browDown, eyeSquint, mouthPress,
+    faceWidth: maxX - minX,
+    faceCenterX: (minX + maxX) * 0.5,
+    faceCenterY: (minY + maxY) * 0.5,
     rU: rEye.u, rV: rEye.v, lU: lEye.u, lV: lEye.v,
     lookH: lookHoriz, lookV: lookVert,
   };

@@ -8,6 +8,7 @@ import type {
   WinState,
 } from "@/lib/types";
 import { ToggleSwitch } from "../ToggleSwitch";
+import type { FaceAnalysisPhase } from "@/lib/face/types";
 
 interface SensingCardProps {
   trackingQuality: TrackingQuality;
@@ -27,6 +28,13 @@ interface SensingCardProps {
   setWinHeatmap: React.Dispatch<React.SetStateAction<WinState>>;
   faceAssist: boolean;
   setFaceAssist: React.Dispatch<React.SetStateAction<boolean>>;
+  faceBehaviorEnabled: boolean;
+  setFaceBehaviorEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  faceAnalysisPhase: FaceAnalysisPhase;
+  faceCandidate: boolean;
+  readingDifficultySignal: boolean;
+  faceBaselineCaptureStatus: "idle" | "collecting" | "ready" | "failed";
+  faceBaselineCaptureProgress: number;
   noCameraMode: boolean;
   setNoCameraMode: React.Dispatch<React.SetStateAction<boolean>>;
   modelReady: boolean;
@@ -59,6 +67,13 @@ export function SensingCard(props: SensingCardProps) {
     setWinHeatmap,
     faceAssist,
     setFaceAssist,
+    faceBehaviorEnabled,
+    setFaceBehaviorEnabled,
+    faceAnalysisPhase,
+    faceCandidate,
+    readingDifficultySignal,
+    faceBaselineCaptureStatus,
+    faceBaselineCaptureProgress,
     noCameraMode,
     setNoCameraMode,
     modelReady,
@@ -122,6 +137,16 @@ export function SensingCard(props: SensingCardProps) {
             </span>
           </div>
         )}
+        <div className="flex justify-between text-[10px] opacity-65 pt-0.5 border-t border-stone-300/40 whitespace-nowrap">
+          <span>Face Support:</span>
+          <span>{faceAnalysisPhase}</span>
+        </div>
+        <div className="flex justify-between text-[10px] opacity-65 whitespace-nowrap">
+          <span>Understanding Gate:</span>
+          <span>
+            Face {faceCandidate ? "Yes" : "No"} · Reading {readingDifficultySignal ? "Yes" : "No"}
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center justify-between text-xs whitespace-nowrap">
@@ -169,6 +194,14 @@ export function SensingCard(props: SensingCardProps) {
       </div>
 
       <div className="flex items-center justify-between text-xs whitespace-nowrap">
+        <span>Facial Behaviour Support</span>
+        <ToggleSwitch
+          checked={faceBehaviorEnabled}
+          onChange={() => setFaceBehaviorEnabled((v) => !v)}
+        />
+      </div>
+
+      <div className="flex items-center justify-between text-xs whitespace-nowrap">
         <span>No-Camera Reading Mode</span>
         <ToggleSwitch
           checked={noCameraMode}
@@ -191,7 +224,11 @@ export function SensingCard(props: SensingCardProps) {
           onClick={calibratePersonalFaceBaseline}
           className={`py-1.5 px-2 rounded-xl border text-xs font-medium disabled:opacity-40 transition whitespace-nowrap ${unifiedSubtleBoxClass}`}
         >
-          Face Baseline
+          {faceBaselineCaptureStatus === "collecting"
+            ? `Recording ${faceBaselineCaptureProgress}%`
+            : faceBaseline
+            ? "Re-record Baseline"
+            : "Face Baseline"}
         </button>
       </div>
     </div>
