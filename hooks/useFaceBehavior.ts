@@ -112,7 +112,12 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
             ...DEFAULT_FACE_ANALYSIS_CONFIG,
             sessionWarmUpMs: 1_000,
             postureSustainMs: 4_000,
-            strainSustainMs: 1_500,
+            smoothingTimeConstantMs: 250,
+            strainBrowDownDelta: 0.03,
+            strainEyeSquintDelta: 0.04,
+            strainMouthPressDelta: 0.035,
+            strainSustainMs: 800,
+            strainReleaseGraceMs: 1_000,
           }
         : { ...DEFAULT_FACE_ANALYSIS_CONFIG },
     [demoMode]

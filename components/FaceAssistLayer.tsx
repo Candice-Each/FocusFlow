@@ -564,7 +564,7 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
               </div>
 
               <p className="border-t border-stone-300/25 pt-2 leading-relaxed opacity-50">
-                Local numeric features only. Raw video is not stored. Demo thresholds are shortened for testing. Automatic posture prompts are off by default.
+                Local numeric features only. Raw video is not stored. Demo thresholds are lowered and shortened for testing. Automatic posture prompts are off by default.
               </p>
             </div>
           )}
