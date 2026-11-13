@@ -155,10 +155,10 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
   const promptStateRef = useRef(createFacePromptPolicyState(promptConfig));
   const baselineRef = useRef<PersonalFaceBaseline | null>(null);
   const activePromptRef = useRef<ActiveFacePrompt | null>(null);
-  // Screen-position monitoring remains available for inspection, but automatic
-  // posture prompts are off by default because they are not part of the
+  // Prompt kinds can still be disabled by the reader for the current session.
+  // Posture reminders start enabled and remain independent from the
   // understanding-assistance gate.
-  const disabledPromptKindsRef = useRef<Set<FacePromptKind>>(new Set(["posture"]));
+  const disabledPromptKindsRef = useRef<Set<FacePromptKind>>(new Set());
   const suppressedUntilClearRef = useRef<Set<FacePromptKind>>(new Set());
   const captureRef = useRef<{
     startedAtMs: number;
@@ -279,7 +279,6 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
       const cooldown = promptConfig.cooldownMs[prompt.kind];
       promptStateRef.current.lastIssuedAtMs[prompt.kind] =
         now - cooldown + minutes * 60_000;
-      suppressedUntilClearRef.current.add(prompt.kind);
       clearActivePrompt();
     },
     [clearActivePrompt, promptConfig]

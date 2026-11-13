@@ -989,7 +989,6 @@ export default function SingleBookReadingInterface() {
         activeLineIdx={activeLineIdx}
         readingSeconds={readingSeconds}
         formatTime={formatTime}
-        onStayPaused={() => setShowReturnConfirm(false)}
         onResume={() => {
           setIsOffScreenPaused(false);
           setShowReturnConfirm(false);
