@@ -64,7 +64,7 @@ const PROMPT_COPY: Record<
     eyebrow: "Active-reading reminder",
     title: "Ready for a short eye break?",
     body:
-      "This reminder uses active reading time. Away, hidden-tab and paused time are excluded.",
+      "This reminder uses accumulated foreground reading time. Hidden-tab, away, calibration, baseline-recording and break time are excluded.",
   },
 };
 
@@ -180,10 +180,11 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
     if (mode === "simplify") {
       setAssistanceResult({
         mode,
-        title: "Simplified explanation",
+        title: "Sentence breakdown",
         sourceText,
         body: simplifyLocally(sourceText),
-        note: "Created locally with plain-language rewriting rules.",
+        note:
+          "Created locally by separating meaning blocks and replacing supported complex wording.",
         loading: false,
         targetClauseId,
       });
@@ -197,9 +198,15 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
         title: "Key terms",
         sourceText,
         body: terms.length
-          ? terms.map((item) => `${item.term} — ${item.definition}`).join("\n\n")
-          : "No specialist terms were detected in this sentence.",
-        note: "Terms were extracted locally from the current sentence.",
+          ? terms
+              .map(
+                (item) =>
+                  `${item.term} / ${item.chinese}\nEN: ${item.definitionEn}\n中：${item.definitionZh}`
+              )
+              .join("\n\n")
+          : "No supported key terms were found in the local bilingual glossary.\n本地双语词典中暂未找到可解释的关键词。",
+        note:
+          "Only terms with a real bilingual glossary entry are shown; generic placeholder definitions are excluded.",
         loading: false,
         targetClauseId,
       });
@@ -406,7 +413,7 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
             {prompt.kind === "understanding" && (
               <>
                 <button type="button" onClick={() => void showAssistance("simplify")} className="rounded-xl bg-stone-900 px-3 py-2 text-xs font-medium text-white">
-                  Simplify
+                  Break down
                 </button>
                 <button type="button" onClick={() => void showAssistance("translate")} className={`rounded-xl border px-3 py-2 text-xs ${subtle}`}>
                   Translate

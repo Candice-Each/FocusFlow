@@ -6,7 +6,15 @@ export interface TranslationResult {
 
 export interface KeyTerm {
   term: string;
-  definition: string;
+  chinese: string;
+  definitionEn: string;
+  definitionZh: string;
+}
+
+interface GlossaryEntry {
+  chinese: string;
+  definitionEn: string;
+  definitionZh: string;
 }
 
 interface BrowserTranslator {
@@ -54,31 +62,162 @@ const STOP_WORDS = new Set(
   ]
 );
 
-const TERM_DEFINITIONS: Record<string, string> = {
-  algorithm: "A defined sequence of steps used to solve a problem or process data.",
-  baseline: "A personal reference measurement used for later comparison.",
-  calibration: "The process of adjusting a system using known reference points.",
-  clause: "A group of words that expresses one part of a sentence.",
-  cognitive: "Related to thinking, understanding, memory, or attention.",
-  comprehension: "The process of understanding what is being read.",
-  confidence: "A score indicating how reliable a system considers its current result.",
-  context: "Surrounding information that helps explain the meaning of something.",
-  contextual: "Dependent on the surrounding information or situation.",
-  fixation: "A short period during which the eyes remain focused on one location.",
-  following: "Tracking or paying attention to something as it continues.",
-  gaze: "The direction or location at which a person is looking.",
-  interface: "The controls and visual elements through which a user operates a system.",
-  modality: "A channel of interaction, such as vision, speech, sound, or gesture.",
-  multimodal: "Using more than one interaction or information channel together.",
-  opacity: "The degree to which an element blocks what is behind it.",
-  peripheral: "Located outside the central area of vision or attention.",
-  regression: "A backward eye movement to previously read material.",
-  scraps: "Small, disconnected pieces left after something has been divided.",
-  chops: "Cuts or divides something into smaller parts.",
-  semantic: "Related to the meaning of words, phrases, or information.",
-  sustained: "Continuing for a meaningful period rather than occurring briefly.",
-  tracking: "Continuously estimating the position or movement of a target.",
-  typography: "The visual arrangement and styling of written text.",
+const TERM_GLOSSARY: Record<string, GlossaryEntry> = {
+  algorithm: {
+    chinese: "算法",
+    definitionEn: "A defined sequence of steps used to solve a problem or process data.",
+    definitionZh: "为解决问题或处理数据而设定的一系列步骤。",
+  },
+  attention: {
+    chinese: "注意力",
+    definitionEn: "The mental focus given to a particular object or task.",
+    definitionZh: "集中在特定对象或任务上的心理资源。",
+  },
+  background: {
+    chinese: "背景；次要位置",
+    definitionEn: "The less noticeable area or idea behind the main focus.",
+    definitionZh: "位于主要关注对象之后、较不显眼的区域或想法。",
+  },
+  baseline: {
+    chinese: "基准值",
+    definitionEn: "A reference measurement used for later comparison.",
+    definitionZh: "用于与后续测量结果进行比较的参考值。",
+  },
+  calibration: {
+    chinese: "校准",
+    definitionEn: "Adjusting a system using known reference points.",
+    definitionZh: "利用已知参考点调整系统的过程。",
+  },
+  candidate: {
+    chinese: "候选信号",
+    definitionEn: "A possible signal that still needs supporting evidence.",
+    definitionZh: "仍需其他证据支持的可能信号。",
+  },
+  chops: {
+    chinese: "切割；分割",
+    definitionEn: "Cuts or divides something into smaller parts.",
+    definitionZh: "把某物切开或分成更小的部分。",
+  },
+  clause: {
+    chinese: "分句",
+    definitionEn: "A group of words expressing one part of a sentence.",
+    definitionZh: "表达句子中某一部分意思的一组词。",
+  },
+  cognitive: {
+    chinese: "认知的",
+    definitionEn: "Related to thinking, understanding, memory, or attention.",
+    definitionZh: "与思考、理解、记忆或注意有关的。",
+  },
+  comprehension: {
+    chinese: "理解",
+    definitionEn: "The process of understanding information or text.",
+    definitionZh: "理解信息或文本含义的过程。",
+  },
+  confidence: {
+    chinese: "置信度",
+    definitionEn: "A score showing how reliable a system considers a result.",
+    definitionZh: "表示系统认为当前结果有多可靠的分数。",
+  },
+  context: {
+    chinese: "上下文",
+    definitionEn: "Surrounding information that helps explain meaning.",
+    definitionZh: "帮助解释含义的周边信息。",
+  },
+  contextual: {
+    chinese: "上下文相关的",
+    definitionEn: "Dependent on the surrounding information or situation.",
+    definitionZh: "其含义取决于周围信息或具体情境的。",
+  },
+  fixation: {
+    chinese: "注视",
+    definitionEn: "A short period when the eyes remain focused on one location.",
+    definitionZh: "眼睛在短时间内持续聚焦于同一位置。",
+  },
+  following: {
+    chinese: "跟随；持续关注",
+    definitionEn: "Tracking or paying attention to something as it continues.",
+    definitionZh: "随着事物发展而持续追踪或注意它。",
+  },
+  gaze: {
+    chinese: "视线；凝视",
+    definitionEn: "The direction or location at which a person is looking.",
+    definitionZh: "一个人正在注视的方向或位置。",
+  },
+  interface: {
+    chinese: "界面",
+    definitionEn: "The controls and visuals through which a user operates a system.",
+    definitionZh: "用户操作系统时使用的控件与视觉元素。",
+  },
+  modality: {
+    chinese: "交互模态",
+    definitionEn: "An interaction channel such as vision, speech, sound, or gesture.",
+    definitionZh: "视觉、语音、声音或手势等交互渠道。",
+  },
+  multimodal: {
+    chinese: "多模态的",
+    definitionEn: "Using more than one interaction or information channel together.",
+    definitionZh: "同时使用多个交互或信息渠道的。",
+  },
+  opacity: {
+    chinese: "不透明度",
+    definitionEn: "The degree to which an element blocks what is behind it.",
+    definitionZh: "元素遮挡其后方内容的程度。",
+  },
+  peripheral: {
+    chinese: "周边的；外围的",
+    definitionEn: "Located outside the central area of vision or attention.",
+    definitionZh: "位于视觉或注意中心之外的。",
+  },
+  quietly: {
+    chinese: "悄然地；不显眼地",
+    definitionEn: "In a way that attracts little attention.",
+    definitionZh: "以不易被察觉或不引人注意的方式。",
+  },
+  regression: {
+    chinese: "回视",
+    definitionEn: "A backward eye movement to previously read material.",
+    definitionZh: "视线返回到先前已读内容的眼动。",
+  },
+  scraps: {
+    chinese: "碎片；零散部分",
+    definitionEn: "Small, disconnected pieces left after something is divided.",
+    definitionZh: "某物被分割后留下的细小、不连贯部分。",
+  },
+  semantic: {
+    chinese: "语义的",
+    definitionEn: "Related to the meaning of words, phrases, or information.",
+    definitionZh: "与词语、短语或信息含义有关的。",
+  },
+  strain: {
+    chinese: "紧张；负担",
+    definitionEn: "Effort or pressure that makes a task harder to sustain.",
+    definitionZh: "使任务更难持续的用力或压力状态。",
+  },
+  sustained: {
+    chinese: "持续的",
+    definitionEn: "Continuing for a meaningful period rather than occurring briefly.",
+    definitionZh: "持续一段有意义的时间，而不是短暂出现。",
+  },
+  thought: {
+    chinese: "想法；思路",
+    definitionEn: "An idea or line of reasoning in the mind.",
+    definitionZh: "头脑中的一个想法或推理思路。",
+  },
+  tracking: {
+    chinese: "追踪",
+    definitionEn: "Continuously estimating the position or movement of a target.",
+    definitionZh: "持续估计目标的位置或移动情况。",
+  },
+  typography: {
+    chinese: "文字排版",
+    definitionEn: "The visual arrangement and styling of written text.",
+    definitionZh: "书面文字的视觉排列与样式设计。",
+  },
+  watching: {
+    chinese: "观察；注视",
+    definitionEn: "Looking at something carefully for a period of time.",
+    definitionZh: "在一段时间内认真看着某个对象。",
+  },
 };
 
 const DEMO_TRANSLATIONS = new Map<string, string>([
@@ -114,47 +253,118 @@ function ensureTerminalPunctuation(text: string): string {
   return /[.!?。！？]$/.test(trimmed) ? trimmed : `${trimmed}.`;
 }
 
+const RELATION_LABELS: Record<string, string> = {
+  although: "Contrast",
+  because: "Reason",
+  but: "Contrast",
+  however: "Contrast",
+  if: "Condition",
+  so: "Result",
+  therefore: "Result",
+  when: "Condition or time",
+  whereas: "Contrast",
+  while: "Parallel or contrasting point",
+  which: "Supporting detail",
+};
+
+function splitMeaningUnits(text: string): Array<{ label: string; text: string }> {
+  const units: Array<{ label: string; text: string }> = [];
+  const connectorPattern =
+    /\s*(?:,\s*)?\b(although|because|but|however|if|so|therefore|when|whereas|while|which)\b\s+/gi;
+  let cursor = 0;
+  let nextLabel = "Main statement";
+  let match: RegExpExecArray | null;
+
+  while ((match = connectorPattern.exec(text)) !== null) {
+    const part = text.slice(cursor, match.index).trim().replace(/[,;:]$/, "");
+    if (part.split(/\s+/).length >= 2) {
+      units.push({ label: nextLabel, text: part });
+    }
+    nextLabel = RELATION_LABELS[match[1].toLowerCase()] ?? "Supporting detail";
+    cursor = connectorPattern.lastIndex;
+  }
+
+  const tail = text.slice(cursor).trim();
+  if (tail) units.push({ label: nextLabel, text: tail });
+
+  if (units.length <= 1 && /[,;—]/.test(text)) {
+    const punctuationParts = text
+      .split(/\s*[,;—]\s*/)
+      .map((part) => part.trim())
+      .filter((part) => part.split(/\s+/).length >= 2);
+    if (punctuationParts.length > 1) {
+      return punctuationParts.map((part, index) => ({
+        label: index === 0 ? "Main statement" : "Supporting detail",
+        text: part,
+      }));
+    }
+  }
+
+  return units.length > 0 ? units : [{ label: "Main statement", text }];
+}
+
+function chunkForReading(text: string, wordsPerChunk = 6): string {
+  const words = text.split(/\s+/).filter(Boolean);
+  const chunks: string[] = [];
+  for (let index = 0; index < words.length; index += wordsPerChunk) {
+    chunks.push(words.slice(index, index + wordsPerChunk).join(" "));
+  }
+  return chunks.join("  /  ");
+}
+
 export function simplifyLocally(sourceText: string): string {
   const source = normaliseSentence(sourceText);
   if (!source) return "No sentence is currently available.";
 
-  let simplified = source;
+  let plainText = source;
   for (const [pattern, replacement] of PLAIN_LANGUAGE_REPLACEMENTS) {
-    simplified = simplified.replace(pattern, replacement);
+    plainText = plainText.replace(pattern, replacement);
   }
-  simplified = simplified
+  plainText = plainText
     .replace(/\s*;\s*/g, ". ")
     .replace(/\s*—\s*/g, ". ")
     .replace(/\s+/g, " ")
     .trim();
 
-  const words = simplified.split(/\s+/);
-  if (words.length > 24) {
-    const split = simplified.match(
-      /^(.{25,}?[,.])\s+(while|although|because|which|whereas|and)\s+(.+)$/i
-    );
-    if (split) {
-      const connector = split[2].toLowerCase();
-      const relationship =
-        connector === "because"
-          ? "Reason"
-          : connector === "although" || connector === "whereas"
-          ? "Contrast"
-          : "Additional point";
-      simplified = `${ensureTerminalPunctuation(split[1].replace(/[,]$/, ""))} ${relationship}: ${ensureTerminalPunctuation(split[3])}`;
-    }
+  const units = splitMeaningUnits(plainText);
+  const mainIdea = ensureTerminalPunctuation(units[0]?.text || plainText);
+  const wordingChanged = plainText.toLowerCase() !== source.toLowerCase();
+  const breakdown = units
+    .map(
+      (unit, index) =>
+        `${index + 1}. ${unit.label}: ${ensureTerminalPunctuation(unit.text)}`
+    )
+    .join("\n");
+  const chunkedText = chunkForReading(plainText);
+
+  if (units.length === 1) {
+    return [
+      wordingChanged ? "PLAIN VERSION" : "KEY IDEA",
+      mainIdea,
+      "",
+      "READ IN CHUNKS",
+      chunkedText,
+      "",
+      wordingChanged
+        ? "Figurative or complex wording was replaced with plainer language."
+        : "This sentence already contains one compact idea, so the wording is preserved and divided only into reading chunks.",
+    ].join("\n");
   }
 
-  if (simplified.toLowerCase() === source.toLowerCase()) {
-    const commaParts = source.split(/,\s+/).filter(Boolean);
-    if (commaParts.length > 1) {
-      simplified = `Main point: ${ensureTerminalPunctuation(commaParts[0])} Detail: ${ensureTerminalPunctuation(commaParts.slice(1).join(", "))}`;
-    } else {
-      simplified = `Main point: ${ensureTerminalPunctuation(source)}`;
-    }
-  }
-
-  return simplified;
+  return [
+    "MAIN IDEA",
+    mainIdea,
+    "",
+    "BREAKDOWN",
+    breakdown,
+    "",
+    "READ IN CHUNKS",
+    chunkedText,
+    "",
+    wordingChanged
+      ? "Common academic or figurative wording was replaced with plainer language."
+      : `${units.length} meaning blocks were separated to reduce sentence-processing load.`,
+  ].join("\n");
 }
 
 function fallbackTranslation(sourceText: string): TranslationResult {
@@ -168,12 +378,13 @@ function fallbackTranslation(sourceText: string): TranslationResult {
     };
   }
 
-  const knownTerms = extractKeyTerms(source, 5).filter((item) =>
-    Object.prototype.hasOwnProperty.call(TERM_DEFINITIONS, item.term.toLowerCase())
-  );
+  const knownTerms = extractKeyTerms(source, 5);
   const glossary = knownTerms.length
     ? knownTerms
-        .map((item) => `${item.term}: ${item.definition}`)
+        .map(
+          (item) =>
+            `${item.term} / ${item.chinese}: ${item.definitionZh}`
+        )
         .join("\n")
     : "No matching terms were found in the offline glossary.";
 
@@ -233,28 +444,33 @@ export function extractKeyTerms(
   maximumTerms = 4
 ): KeyTerm[] {
   const tokens = normaliseSentence(sourceText).match(/[A-Za-z][A-Za-z'-]{3,}/g) ?? [];
-  const unique = new Map<string, { display: string; score: number }>();
+  const unique = new Map<
+    string,
+    { display: string; score: number; glossary: GlossaryEntry }
+  >();
 
   for (const token of tokens) {
     const key = token.toLowerCase().replace(/['’-]s$/, "");
     if (STOP_WORDS.has(key)) continue;
+    const glossary = TERM_GLOSSARY[key];
+    if (!glossary) continue;
     let score = Math.min(5, key.length / 2);
-    if (TERM_DEFINITIONS[key]) score += 8;
+    score += 8;
     if (/(tion|sion|ment|ity|ive|ical|ology|metric|scope)$/.test(key)) score += 2;
     if (/^[A-Z]/.test(token)) score += 1;
     const previous = unique.get(key);
     if (!previous || score > previous.score) {
-      unique.set(key, { display: token, score });
+      unique.set(key, { display: token, score, glossary });
     }
   }
 
   return [...unique.entries()]
     .sort((a, b) => b[1].score - a[1].score || a[0].localeCompare(b[0]))
     .slice(0, maximumTerms)
-    .map(([key, value]) => ({
+    .map(([, value]) => ({
       term: value.display,
-      definition:
-        TERM_DEFINITIONS[key] ??
-        `A potentially important content word in this sentence. Re-read the surrounding phrase to confirm its specific meaning here.`,
+      chinese: value.glossary.chinese,
+      definitionEn: value.glossary.definitionEn,
+      definitionZh: value.glossary.definitionZh,
     }));
 }

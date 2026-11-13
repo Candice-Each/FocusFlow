@@ -264,13 +264,17 @@ export function useFaceBehavior(options: UseFaceBehaviorOptions) {
     (minutes: number) => {
       const prompt = activePromptRef.current;
       if (!prompt) return;
+      if (prompt.kind === "rest") {
+        promptStateRef.current.nextRestDueAtActiveReadingMs =
+          engineStateRef.current.activeReadingMs + minutes * 60_000;
+        clearActivePrompt();
+        return;
+      }
       const now = performance.now();
       const cooldown = promptConfig.cooldownMs[prompt.kind];
       promptStateRef.current.lastIssuedAtMs[prompt.kind] =
         now - cooldown + minutes * 60_000;
-      if (prompt.kind !== "rest") {
-        suppressedUntilClearRef.current.add(prompt.kind);
-      }
+      suppressedUntilClearRef.current.add(prompt.kind);
       clearActivePrompt();
     },
     [clearActivePrompt, promptConfig]
