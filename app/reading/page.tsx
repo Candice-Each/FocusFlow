@@ -20,6 +20,9 @@ import { createGazeTrackingState } from "@/lib/types";
 import { useHeatmapRenderer } from "@/hooks/useHeatmapRenderer";
 import { useGazeTracking } from "@/hooks/useGazeTracking";
 import { usePagination } from "@/hooks/usePagination";
+import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
+import { playSubtleEarcon } from "@/lib/focusflow/earcon";
+import type { VoiceAction, ReaderSnapshot } from "@/lib/voice";
 
 import { TopBar } from "@/components/TopBar";
 import { LeftSidebar, type Bookmark } from "@/components/LeftSidebar";
@@ -85,9 +88,7 @@ export default function SingleBookReadingInterface() {
   const [clauseClickRatio, setClauseClickRatio] = useState(0.5);
 
   const [voiceMode, setVoiceMode] = useState<"Read" | "Notes">("Read");
-  const [micActive, setMicActive] = useState(false);
-  const [voiceLog, setVoiceLog] = useState('Say "next line" or "open menu"');
-  const [voiceError, setVoiceError] = useState(false);
+  const [voiceLog, setVoiceLog] = useState('Say "hey focus" + command, or use the mic for one-shot');
 
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
@@ -375,88 +376,6 @@ export default function SingleBookReadingInterface() {
     }
     setClauseMenuOpen(false);
   }, [getActiveSentenceText, pageIdx, showToast]);
-  const toggleMicrophone = useCallback(() => {
-    const SpeechRec =
-      typeof window !== "undefined"
-        ? (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown })
-          .SpeechRecognition ||
-        (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
-        : null;
-
-    if (!SpeechRec) {
-      setVoiceError(true);
-      setVoiceLog("Speech API unavailable - click Retry");
-      showToast("Voice Unavailable", "Use desktop Chrome or Edge for Web Speech API");
-      return;
-    }
-
-    if (micActive) {
-      setMicActive(false);
-      setVoiceLog("Microphone paused");
-      showToast("Microphone Off");
-      return;
-    }
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const recognition = new (SpeechRec as any)();
-      recognition.lang = "en-US";
-      recognition.continuous = false;
-      recognition.interimResults = false;
-      setVoiceError(false);
-      setMicActive(true);
-      setVoiceLog(
-        voiceMode === "Read"
-          ? "Listening for command (next line / open menu)..."
-          : "Listening for voice note..."
-      );
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      recognition.onresult = (event: any) => {
-        const transcript = String(event.results?.[0]?.[0]?.transcript || "")
-          .toLowerCase()
-          .trim();
-        setVoiceLog(transcript || "No speech detected");
-        setMicActive(false);
-
-        if (voiceMode === "Notes" && transcript) {
-          setNotesList((prev) => [`[Voice Note] ${transcript}`, ...prev]);
-          setMultimodalTriggerState("Voice Note Saved");
-          showToast("Voice Note Saved", transcript);
-          return;
-        }
-
-        if (transcript.includes("next")) {
-          const nextRow = Math.min(currentLines.length - 1, activeLineIdx + 1);
-          const cid = currentLines[nextRow]?.segments?.[0]?.clauseId ?? activeClauseId;
-          stateRef.current.currentLine = nextRow;
-          stateRef.current.currentClauseId = cid;
-          setActiveLineIdx(nextRow);
-          setActiveClauseId(cid);
-          setMultimodalTriggerState("Voice: Next Line");
-        } else if (
-          transcript.includes("menu") ||
-          transcript.includes("open") ||
-          transcript.includes("select")
-        ) {
-          setClauseMenuOpen(true);
-          setMultimodalTriggerState("Voice: Menu Open");
-        }
-      };
-
-      recognition.onerror = () => {
-        setMicActive(false);
-        setVoiceError(true);
-        setVoiceLog("Recognition failed - tap Retry");
-      };
-      recognition.onend = () => setMicActive(false);
-      recognition.start();
-    } catch {
-      setVoiceError(true);
-      setMicActive(false);
-    }
-  }, [micActive, voiceMode, currentLines, activeLineIdx, activeClauseId, showToast]);
-
   const handleFileUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -608,6 +527,248 @@ export default function SingleBookReadingInterface() {
     stateRef.current.reachedRightZone = false;
     stateRef.current.maxLineX = 0;
   }, [pageIdx, pages, setPageIdx, setActiveLineIdx, setActiveClauseId]);
+
+  const voiceSnapshotRef = useRef<ReaderSnapshot | null>(null);
+  useEffect(() => {
+    voiceSnapshotRef.current = {
+      pageIdx,
+      pageCount: pages.length,
+      lineIdx: activeLineIdx,
+      lineCount: currentLines.length,
+      hasActiveSentence: Boolean(
+        currentLines[activeLineIdx]?.segments?.some((s) => s.clauseId === activeClauseId)
+      ),
+      isSpeaking,
+      isDictating: voiceMode === "Notes",
+    };
+  }, [
+    pageIdx, pages.length, activeLineIdx, currentLines, activeClauseId,
+    isSpeaking, voiceMode,
+  ]);
+
+  const getVoiceSnapshot = useCallback(
+    (): ReaderSnapshot =>
+      voiceSnapshotRef.current ?? {
+        pageIdx, pageCount: pages.length, lineIdx: activeLineIdx,
+        lineCount: currentLines.length, hasActiveSentence: true,
+        isSpeaking, isDictating: voiceMode === "Notes",
+      },
+    [pageIdx, pages.length, activeLineIdx, currentLines.length, isSpeaking, voiceMode]
+  );
+
+  const moveLineBy = useCallback(
+    (delta: number) => {
+      const target = Math.max(0, Math.min(currentLines.length - 1, activeLineIdx + delta));
+      if (target === activeLineIdx) return;
+      const cid = currentLines[target]?.segments?.[0]?.clauseId ?? activeClauseId;
+      stateRef.current.currentLine = target;
+      stateRef.current.currentClauseId = cid;
+      stateRef.current.lineEnterTime = performance.now();
+      stateRef.current.reachedRightZone = false;
+      stateRef.current.maxLineX = 0;
+      setActiveLineIdx(target);
+      setActiveClauseId(cid);
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [currentLines, activeLineIdx, activeClauseId]
+  );
+
+  const adjustFontSize = useCallback(
+    (delta: number) => {
+      setFontSize((prev) => Math.max(10, Math.min(40, prev + delta)));
+    },
+    []
+  );
+
+  /**
+   * Voice action dispatch table.
+   *
+   * This is the host's half of the voice contract: the engine only says *what*
+   * happened, the page decides *how* it changes. Keep it exhaustive — a new
+   * `CommandId` should fail loudly here before it silently does nothing.
+   */
+  const handleVoiceAction = useCallback(
+    (action: VoiceAction) => {
+      switch (action.kind) {
+        case "COMMAND": {
+          const { id, count, matched } = action.command;
+          switch (id) {
+            case "NEXT_LINE":
+              moveLineBy(1);
+              setMultimodalTriggerState("Voice: Next Line");
+              break;
+            case "PREV_LINE":
+              moveLineBy(-1);
+              setMultimodalTriggerState("Voice: Previous Line");
+              break;
+            case "SKIP_LINES_FORWARD":
+              moveLineBy(count ?? 1);
+              setMultimodalTriggerState(`Voice: Skip ${count ?? 1} Lines`);
+              break;
+            case "SKIP_LINES_BACK":
+              moveLineBy(-(count ?? 1));
+              setMultimodalTriggerState(`Voice: Back ${count ?? 1} Lines`);
+              break;
+            case "NEXT_PAGE":
+              handlePageNext();
+              setMultimodalTriggerState("Voice: Next Page");
+              break;
+            case "PREV_PAGE":
+              handlePagePrev();
+              setMultimodalTriggerState("Voice: Previous Page");
+              break;
+            case "FIRST_PAGE":
+              setPageIdx(0);
+              setActiveLineIdx(0);
+              setActiveClauseId(pages[0]?.[0]?.segments?.[0]?.clauseId ?? 0);
+              setMultimodalTriggerState("Voice: First Page");
+              break;
+            case "LAST_PAGE": {
+              const last = Math.max(0, pages.length - 1);
+              setPageIdx(last);
+              setActiveLineIdx(0);
+              setActiveClauseId(pages[last]?.[0]?.segments?.[0]?.clauseId ?? 0);
+              setMultimodalTriggerState("Voice: Last Page");
+              break;
+            }
+            case "NEXT_CHAPTER":
+              handleSelectChapter((chapterIdx + 1) % BOOK_CHAPTERS.length);
+              setMultimodalTriggerState("Voice: Next Chapter");
+              break;
+            case "PREV_CHAPTER":
+              handleSelectChapter(
+                (chapterIdx - 1 + BOOK_CHAPTERS.length) % BOOK_CHAPTERS.length
+              );
+              setMultimodalTriggerState("Voice: Previous Chapter");
+              break;
+            case "OPEN_MENU":
+              setClauseMenuOpen(true);
+              setMultimodalTriggerState("Voice: Menu Open");
+              break;
+            case "CLOSE_MENU":
+              setClauseMenuOpen(false);
+              setMultimodalTriggerState("Voice: Menu Closed");
+              break;
+            case "READ_LINE":
+              if (!isSpeaking) toggleTtsReading(true);
+              setMultimodalTriggerState("Voice: Read Line");
+              break;
+            case "READ_PARAGRAPH":
+              if (!isSpeaking) toggleTtsReading(false);
+              setMultimodalTriggerState("Voice: Read Page");
+              break;
+            case "STOP_READING":
+              if (isSpeaking) toggleTtsReading();
+              setMultimodalTriggerState("Voice: Reading Stopped");
+              break;
+            case "FONT_BIGGER":
+              adjustFontSize(2);
+              setMultimodalTriggerState("Voice: Font Bigger");
+              break;
+            case "FONT_SMALLER":
+              adjustFontSize(-2);
+              setMultimodalTriggerState("Voice: Font Smaller");
+              break;
+            case "BOOKMARK_LINE":
+              addBookmarkForActiveClause();
+              setMultimodalTriggerState("Voice: Bookmark Saved");
+              break;
+            case "OPEN_NOTES":
+              setNotesModalOpen(true);
+              setMultimodalTriggerState("Voice: Notes Open");
+              break;
+            case "HIGHLIGHT_SENTENCE":
+              toggleHighlightActiveClause();
+              setMultimodalTriggerState("Voice: Highlight");
+              break;
+            case "UNDERLINE_SENTENCE":
+              toggleUnderlineActiveClause();
+              setMultimodalTriggerState("Voice: Underline");
+              break;
+            case "COPY_SENTENCE":
+              copyActiveClause();
+              setMultimodalTriggerState("Voice: Copied");
+              break;
+            case "PAUSE_READING":
+              setIsOffScreenPaused(true);
+              setShowReturnConfirm(true);
+              setMultimodalTriggerState("Voice: Session Paused");
+              break;
+            case "RESUME_READING":
+              setIsOffScreenPaused(false);
+              setShowReturnConfirm(false);
+              setMultimodalTriggerState("Voice: Session Resumed");
+              break;
+            case "START_DICTATION":
+              setVoiceMode("Notes");
+              break;
+            case "STOP_DICTATION":
+              setVoiceMode("Read");
+              break;
+            case "CANCEL":
+              setClauseMenuOpen(false);
+              showToast("Cancelled", "Returned to the page");
+              break;
+            case "HELP":
+              showToast(
+                "Voice Commands",
+                'Try: "hey focus next line", "open menu", "read this line", "bigger font"'
+              );
+              break;
+            default: {
+              const unreachable: never = id;
+              void unreachable;
+            }
+          }
+          setVoiceLog(`✓ ${matched}`);
+          playSubtleEarcon(659.25, 140);
+          break;
+        }
+        case "DICTATION_START":
+          setVoiceLog("Dictation on – speak, then say \"stop dictation\"");
+          playSubtleEarcon(659.25, 140);
+          break;
+        case "DICTATION_APPEND":
+          setNotesList((prev) => [`[Voice Note] ${action.text}`, ...prev]);
+          setMultimodalTriggerState("Voice Note Saved");
+          setVoiceLog(`✎ ${action.text}`);
+          playSubtleEarcon(659.25, 140);
+          break;
+        case "DICTATION_END":
+          showToast("Voice Note Saved", action.text.slice(0, 60));
+          setVoiceLog("Dictation finished");
+          playSubtleEarcon(659.25, 140);
+          break;
+        case "STATUS":
+          // The engine is the single source of truth for the mode: a spoken
+          // "change to read mode" flips the engine, and the UI must follow.
+          // Functional update keeps `voiceMode` out of this callback's deps,
+          // which previously caused a re-render loop with the mode effect.
+          setVoiceMode((prev) => (prev === action.mode ? prev : action.mode));
+          break;
+        case "PROMPT":
+          // Boundary notices ("already on the last page") are not failures and
+          // stay silent; only "not understood" / recognizer errors get the low cue.
+          if (action.severity === "error") playSubtleEarcon(220, 180);
+          break;
+        case "PREVIEW":
+          break;
+      }
+    },
+    [
+      moveLineBy, handlePageNext, handlePagePrev, pages, chapterIdx, handleSelectChapter,
+      isSpeaking, toggleTtsReading, adjustFontSize, addBookmarkForActiveClause,
+      toggleHighlightActiveClause, toggleUnderlineActiveClause, copyActiveClause,
+      showToast, setPageIdx, setActiveLineIdx, setActiveClauseId, setNotesModalOpen,
+    ]
+  );
+
+  const { micActive, voiceError, toggleMicrophone, listenOnce } = useVoiceAssistant({
+    mode: voiceMode,
+    getSnapshot: getVoiceSnapshot,
+    onAction: handleVoiceAction,
+    onLog: setVoiceLog,
+  });
 
   const onSentenceClick = useCallback(
     (lineIdx: number, clauseId: number, ratio: number) => {
@@ -822,6 +983,7 @@ export default function SingleBookReadingInterface() {
         mouthScore={mouthScore}
         voiceError={voiceError}
         toggleMicrophone={toggleMicrophone}
+        listenOnce={listenOnce}
         micActive={micActive}
         voiceMode={voiceMode}
         setVoiceMode={setVoiceMode}

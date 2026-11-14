@@ -37,21 +37,30 @@ export function UserGuidePage() {
   ];
 
   const voiceItems = [
-    { cmd: "Next chapter", desc: "Advance to the next chapter",
-      previewTitle: "Move to next chapter",
-      previewBody: "Speak a clean verb + object phrase. When recognition succeeds, a soft earcon plays and the chapter advances." },
+    { cmd: "Next line", desc: "Move the active sentence down one row",
+      previewTitle: "Move to the next line",
+      previewBody: "Says \"hey focus next line\". Only a finished utterance is acted on; a half sentence is ignored so the page never jumps on a slip of the tongue." },
+    { cmd: "Next page", desc: "Turn to the next page",
+      previewTitle: "Turn the page forward",
+      previewBody: "Blocked at the last page with a spoken-style prompt instead of silently doing nothing." },
     { cmd: "Previous chapter", desc: "Return to the previous chapter",
       previewTitle: "Return to previous chapter",
       previewBody: "Switches immediately to the preceding chapter without touching the mouse or keyboard." },
+    { cmd: "Open menu", desc: "Summon the sentence action bar",
+      previewTitle: "Open the quick action bar",
+      previewBody: "Replaces hunting for the floating menu: the sentence currently held by your gaze gets its action bar." },
+    { cmd: "Read this line", desc: "Start TTS narration from the active line",
+      previewTitle: "Start TTS narration",
+      previewBody: "Initiates calm spoken narration from the active sentence for multisensory reinforcement." },
     { cmd: "Save this line", desc: "Bookmark the active sentence",
       previewTitle: "Choose a sentence",
       previewBody: "Anchors a bookmark on the sentence currently held by your gaze and logs the timestamp." },
-    { cmd: "Pause reading", desc: "Pause reading timer and audio",
-      previewTitle: "Hold the session timer",
-      previewBody: "Freezes WPM and active duration tracking until you confirm resumption." },
-    { cmd: "Read this paragraph", desc: "Start voice narration from active line",
-      previewTitle: "Start TTS narration",
-      previewBody: "Initiates calm spoken narration from the active sentence for multisensory reinforcement." },
+    { cmd: "Font bigger", desc: "Increase the reading font size",
+      previewTitle: "Increase text size",
+      previewBody: "Font size steps by two points per command so a single mishearing does not blow up the page." },
+    { cmd: "Stop dictation", desc: "End a Notes-mode voice note",
+      previewTitle: "Finish the voice note",
+      previewBody: "In Notes mode every final is appended to the note list; this phrase closes the note." },
   ];
 
   const triggerPostureCorrectionDemo = () => {
@@ -71,7 +80,7 @@ export function UserGuidePage() {
     },
     Voice: {
       title: "How to speak",
-      subtitle: "Use a short verb and object. The system does not guess half-sentences, and failed commands are logged.",
+      subtitle: "Say the wake word first, then a short verb and object. Half sentences are ignored, repeated commands are throttled, and failed phrases are logged.",
     },
   }[subTab];
 
