@@ -124,10 +124,30 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
     let fpsTimer = performance.now();
     let active = true;
 
-    const filterX = new OneEuroFilter(0.8, 0.012, 1.0);
-    const filterY = new OneEuroFilter(0.5, 0.007, 1.0);
+    let verticalJumpDir: -1 | 0 | 1 = 0;
+    let lastVerticalJumpTime = 0;
+    let rightZoneReachedAt = 0;
+    let prevTrackedLine = 0;
+    let prevTrackedPage = 0;
+
+    const filterX = new OneEuroFilter(0.8, 0.014, 1.0);
+    const filterY = new OneEuroFilter(0.55, 0.008, 1.0);
 
     async function setup() {
+      const s = stateRef.current;
+      s.telQueue = [];
+      s.biasY = 0;
+      s.lineEnterTime = 0;
+      s.prevBlink = 0;
+      s.blinkEma = 0.1;
+      s.blinkCooldownUntil = 0;
+      verticalJumpDir = 0;
+      lastVerticalJumpTime = 0;
+      rightZoneReachedAt = 0;
+      prevTrackedLine = s.currentLine;
+      prevTrackedPage = 0;
+      lastInferMs = -1;
+
       try {
         setCameraStatus("Initializing");
         const vision = await FilesetResolver.forVisionTasks(
@@ -245,7 +265,7 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
         // Priority 1: Calibration sample collection
         const collecting = collectingPointRef.current;
         if (collecting && collecting.remaining > 0) {
-          if (tel.blink > 0.52) return;
+          if (tel.blink > 0.5) return;
           if (collecting.settle > 0) {
             collecting.settle -= 1;
             return;
@@ -293,7 +313,6 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
 
         // Priority 2: Mouth-open trigger
         if (uiConfigRef.current.gestureControl && tel.jawOpen > 0.32) {
-          // Sync cursor clause before opening menu to avoid stale selection
           if (rowsContainerRef.current) {
             const rr = rowsContainerRef.current.getBoundingClientRect();
             const { pages: cp, pageIdx: pi } = layoutRef.current;
@@ -303,7 +322,8 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
                 ? st.recentX.reduce((a, b) => a + b, 0) / st.recentX.length
                 : rr.left;
             const localXSync = Math.max(0, approxX - rr.left);
-            for (const seg of lineSegs) {
+            for (let i = 0; i < lineSegs.length; i++) {
+              const seg = lineSegs[i];
               if (
                 localXSync >= seg.startX - 14 &&
                 localXSync <= seg.endX + 14
@@ -356,7 +376,7 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
           st.mouthOpenStart = 0;
         }
 
-        // Dynamic Spike-Based Blink Guard
+        // Dynamic Spike-Based Blink Guard with 2-frame lookback buffer
         const deltaBlink = tel.blink - st.prevBlink;
         st.prevBlink = tel.blink;
         const isBlinkSpike =
@@ -366,7 +386,7 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
 
         if (isBlinkSpike) {
           st.telQueue = [];
-          st.blinkCooldownUntil = timestampMs + 130;
+          st.blinkCooldownUntil = timestampMs + 140;
           return;
         }
         st.blinkEma = st.blinkEma * 0.92 + tel.blink * 0.08;
@@ -376,7 +396,9 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
         }
 
         st.telQueue.push(tel);
-        if (st.telQueue.length < 1) { return; }
+        if (st.telQueue.length < 3) {
+          return;
+        }
         const stableTel = st.telQueue.shift()!;
         const feat = stableTel.features;
 
@@ -390,12 +412,6 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
           rawY += feat[i] * W[i][1];
         }
 
-        const clampedRawX = Math.max(-120, Math.min(window.innerWidth + 120, rawX));
-        const clampedRawY = Math.max(-80, Math.min(window.innerHeight + 80, rawY));
-        const filtX = filterX.filter(clampedRawX, timestampMs);
-        st.biasY = Math.max(-1000, Math.min(1000, st.biasY));
-        const filtY = filterY.filter(clampedRawY, timestampMs) + st.biasY;
-
         const rowsRect = rowsContainerRef.current.getBoundingClientRect();
         const { pages: curPages, pageIdx: curPageIdx } = layoutRef.current;
         const lineCount = curPages[curPageIdx]?.length ?? 1;
@@ -404,6 +420,39 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
         const curLineHeight = uiConfigRef.current.lineHeightPx;
         const getLineCenterY = (idx: number) =>
           rowsRect.top + (idx + 0.5) * curLineHeight;
+
+        const clampedRawX = Math.max(-120, Math.min(window.innerWidth + 120, rawX));
+        const clampedRawY = Math.max(-80, Math.min(window.innerHeight + 80, rawY));
+        const filtX = filterX.filter(clampedRawX, timestampMs);
+        const rawFiltY = filterY.filter(clampedRawY, timestampMs);
+
+        const maxBiasPx = curLineHeight * 2.5;
+
+        // If user manually clicked a sentence (st.currentLine changed externally), anchor biasY to the clicked row
+        if (st.currentLine !== prevTrackedLine || curPageIdx !== prevTrackedPage) {
+          const targetCenterY = getLineCenterY(st.currentLine);
+          const clickResidual = targetCenterY - (rawFiltY + st.biasY);
+          if (Math.abs(clickResidual) < curLineHeight * 3.5) {
+            st.biasY = Math.max(
+              -maxBiasPx,
+              Math.min(maxBiasPx, st.biasY + 0.45 * clickResidual)
+            );
+          }
+          prevTrackedLine = st.currentLine;
+          prevTrackedPage = curPageIdx;
+        }
+
+        // Top-of-page ceiling guard: when reading Row 0 or Row 1, never let cursor float above Row 0 into the empty header
+        if (st.currentLine <= 1 && rawFiltY + st.biasY < rowsRect.top) {
+          const ceilingResidual = getLineCenterY(st.currentLine) - (rawFiltY + st.biasY);
+          st.biasY = Math.max(
+            -maxBiasPx,
+            Math.min(maxBiasPx, st.biasY + 0.18 * ceilingResidual)
+          );
+        }
+
+        st.biasY = Math.max(-maxBiasPx, Math.min(maxBiasPx, st.biasY));
+        const filtY = rawFiltY + st.biasY;
 
         const screenX = Math.max(0, Math.min(window.innerWidth, filtX));
         const screenY = Math.max(0, Math.min(window.innerHeight, filtY));
@@ -456,59 +505,69 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
         const lineDwellMs = timestampMs - st.lineEnterTime;
 
         const expectedLineMs = Math.max(
-          550,
+          600,
           ((currentLineObj.wordCount || 8) / Math.max(80, st.wpmEma)) * 60000
         );
         const timeProgress = Math.min(1.6, lineDwellMs / expectedLineMs);
 
+        // ==================== Sliders Mapping ====================
         const { nextSens, prevSens, skipSens } = uiConfigRef.current;
-        const rightFactor = 0.45 - ((nextSens - 65) / 100) * 0.2;
-        const backwardHoldMs = Math.max(450, 950 - (prevSens - 30) * 12);
-        const verticalSkipHoldMs = Math.max(
-          700,
-          1500 - (skipSens - 30) * 15
-        );
+        const normNext = Math.max(0, Math.min(1, (nextSens - 15) / 80));
+        const normPrev = Math.max(0, Math.min(1, (prevSens - 5) / 85));
+        const normSkip = Math.max(0, Math.min(1, (skipSens - 5) / 85));
+
+        const rightFactor = 0.62 - normNext * 0.16;
+        const minWrapDwellMs = 580 - normNext * 200;
+        const sweepDropFactor = 0.26 - normNext * 0.08;
+        const leftLandingBase = 0.34 + normNext * 0.10;
+
+        // High-Resistance Prev & Skip (much harder than Next)
+        const prevOffsetRatio = 2.25 - normPrev * 0.60;
+        const skipOffsetRatio = 2.65 - normSkip * 0.65;
+        const backwardHoldMs = Math.round(1600 - normPrev * 600);
+        const verticalSkipHoldMs = Math.round(1850 - normSkip * 650);
+
+        const activeCenterY = getLineCenterY(st.currentLine);
+        const diffY = filtY - activeCenterY;
 
         if (lineDwellMs > 260) {
           if (smoothX > st.maxLineX) st.maxLineX = smoothX;
           const rightTriggerRatio = Math.max(
-            0.2,
+            0.24,
             currentLineObj.widthRatio * rightFactor
           );
-          if (
-            localX >= textWidthPx * rightTriggerRatio ||
-            timeProgress >= 0.85
-          ) {
+          if (localX >= textWidthPx * rightTriggerRatio) {
             st.reachedRightZone = true;
+            rightZoneReachedAt = timestampMs;
           }
         }
-        const leftLandingRatio = timeProgress >= 0.65 ? 0.5 : 0.44;
+
+        if (st.reachedRightZone && timestampMs - rightZoneReachedAt > 4500) {
+          st.reachedRightZone = false;
+          st.maxLineX = smoothX;
+        }
+
         const leftReturnX =
           lineStartX +
           textWidthPx *
-          Math.min(
-            leftLandingRatio,
-            Math.max(0.25, currentLineObj.widthRatio * 0.72)
-          );
+            Math.min(
+              leftLandingBase,
+              Math.max(0.22, currentLineObj.widthRatio * 0.55)
+            );
         const minSweepDropPx =
-          textWidthPx * Math.max(0.14, currentLineObj.widthRatio * 0.22);
+          textWidthPx *
+          Math.max(0.16, currentLineObj.widthRatio * sweepDropFactor);
 
         const canNormalWrap =
           st.reachedRightZone &&
-          lineDwellMs >= Math.min(480, expectedLineMs * 0.38) &&
-          timestampMs - st.lastSweepTime > 520 &&
+          lineDwellMs >= minWrapDwellMs &&
+          timestampMs - st.lastSweepTime > 650 &&
           smoothX <= leftReturnX &&
           st.maxLineX - smoothX >= minSweepDropPx;
 
-        const canShortTailWrap =
-          currentLineObj.widthRatio < 0.32 &&
-          lineDwellMs >= expectedLineMs * 0.95 &&
-          timestampMs - st.lastSweepTime > 650 &&
-          filtY > getLineCenterY(st.currentLine) + curLineHeight * 0.35;
-
-        if (canNormalWrap || canShortTailWrap) {
+        if (canNormalWrap) {
           if (
-            lineDwellMs >= 400 &&
+            lineDwellMs >= 450 &&
             lineDwellMs <= 20000 &&
             currentLineObj.wordCount >= 2
           ) {
@@ -524,38 +583,27 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
 
           st.lastSweepTime = timestampMs;
           st.reachedRightZone = false;
+          rightZoneReachedAt = 0;
           st.maxLineX = lineStartX;
           st.backwardCandidateId = -1;
           st.verticalJumpStartTime = 0;
+          verticalJumpDir = 0;
 
           if (st.currentLine < lineCount - 1) {
             st.currentLine += 1;
+            prevTrackedLine = st.currentLine;
             st.lineEnterTime = timestampMs;
             setActiveLineIdx(st.currentLine);
             const nextRowSegs =
               curPages[curPageIdx]?.[st.currentLine]?.segments ?? [];
             if (nextRowSegs.length > 0) {
-              const localXNext = Math.max(0, smoothX - lineStartX);
-              let matchId = nextRowSegs[0].clauseId;
-              for (const seg of nextRowSegs) {
-                if (localXNext >= seg.startX - 14 && localXNext <= seg.endX + 14) {
-                  matchId = seg.clauseId;
-                  break;
-                }
-              }
-              st.currentClauseId = matchId;
-              setActiveClauseId(matchId);
-            }
-
-            if (uiConfigRef.current.faceAssist) {
-              const trueY = getLineCenterY(st.currentLine);
-              const residualY = trueY - filtY;
-              if (Math.abs(residualY) < curLineHeight * 3.5) {
-                st.biasY += 0.08 * residualY;
-              }
+              st.currentClauseId = nextRowSegs[0].clauseId;
+              setActiveClauseId(nextRowSegs[0].clauseId);
             }
           } else if (curPageIdx < curPages.length - 1) {
             st.currentLine = 0;
+            prevTrackedLine = 0;
+            prevTrackedPage = curPageIdx + 1;
             st.lineEnterTime = timestampMs;
             setActiveLineIdx(0);
             const nextFirstClause =
@@ -564,38 +612,55 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
             setActiveClauseId(nextFirstClause);
             setPageIdx(curPageIdx + 1);
           }
-        } else {
-          const diffY = filtY - getLineCenterY(st.currentLine);
-          const isTryingPrevLine = diffY < -curLineHeight * 1.95;
-          const isTryingSkipLine = diffY > curLineHeight * 2.25;
+        } else if (timestampMs - lastVerticalJumpTime > 1800) {
+          const isInsideReadingBounds =
+            filtY >= rowsRect.top - curLineHeight * 0.6 &&
+            filtY <= rowsRect.bottom + curLineHeight * 0.6;
 
-          if (isTryingPrevLine || isTryingSkipLine) {
-            if (st.verticalJumpStartTime === 0) {
+          const isTryingPrevLine =
+            isInsideReadingBounds &&
+            st.currentLine > 0 &&
+            diffY < -curLineHeight * prevOffsetRatio;
+
+          const isTryingSkipLine =
+            isInsideReadingBounds &&
+            st.currentLine < lineCount - 2 &&
+            diffY > curLineHeight * skipOffsetRatio;
+
+          const curDir: -1 | 0 | 1 = isTryingPrevLine
+            ? -1
+            : isTryingSkipLine
+            ? 1
+            : 0;
+
+          if (curDir !== 0) {
+            if (st.verticalJumpStartTime === 0 || verticalJumpDir !== curDir) {
               st.verticalJumpStartTime = timestampMs;
+              verticalJumpDir = curDir;
             } else if (
               timestampMs - st.verticalJumpStartTime >
-              (isTryingPrevLine ? backwardHoldMs : verticalSkipHoldMs)
+              (curDir === -1 ? backwardHoldMs : verticalSkipHoldMs)
             ) {
-              let bestIdx = st.currentLine;
-              let minDiff = Infinity;
-              for (let i = 0; i < lineCount; i++) {
-                const d = Math.abs(filtY - getLineCenterY(i));
-                if (d < minDiff) {
-                  minDiff = d;
-                  bestIdx = i;
-                }
-              }
-              if (bestIdx !== st.currentLine) {
-                st.currentLine = bestIdx;
+              const targetRow =
+                curDir === -1
+                  ? Math.max(0, st.currentLine - 1)
+                  : Math.min(lineCount - 1, st.currentLine + 2);
+
+              if (targetRow !== st.currentLine) {
+                st.currentLine = targetRow;
+                prevTrackedLine = targetRow;
                 st.lineEnterTime = timestampMs;
+                lastVerticalJumpTime = timestampMs;
                 st.reachedRightZone = false;
+                rightZoneReachedAt = 0;
                 st.maxLineX = lineStartX;
-                setActiveLineIdx(bestIdx);
+                setActiveLineIdx(targetRow);
                 const targetSegs =
-                  curPages[curPageIdx]?.[bestIdx]?.segments ?? [];
+                  curPages[curPageIdx]?.[targetRow]?.segments ?? [];
                 if (targetSegs.length > 0) {
                   let matchId = targetSegs[0].clauseId;
-                  for (const seg of targetSegs) {
+                  for (let i = 0; i < targetSegs.length; i++) {
+                    const seg = targetSegs[i];
                     if (localX >= seg.startX - 8 && localX <= seg.endX + 8) {
                       matchId = seg.clauseId;
                       break;
@@ -606,9 +671,11 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
                 }
               }
               st.verticalJumpStartTime = 0;
+              verticalJumpDir = 0;
             }
           } else {
             st.verticalJumpStartTime = 0;
+            verticalJumpDir = 0;
           }
         }
 
@@ -618,7 +685,7 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
           let rawMatchedId = st.currentClauseId;
           for (let s = 0; s < activeLineSegments.length; s++) {
             const seg = activeLineSegments[s];
-            if (localX >= seg.startX - 8 && localX <= seg.endX + 8) {
+            if (localX >= seg.startX - 4 && localX <= seg.endX + 4) {
               rawMatchedId = seg.clauseId;
               break;
             }
@@ -628,10 +695,23 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
             if (st.forwardCandidateId !== rawMatchedId) {
               st.forwardCandidateId = rawMatchedId;
               st.forwardStartTime = timestampMs;
-            } else if (timestampMs - st.forwardStartTime >= 120) {
+            } else if (timestampMs - st.forwardStartTime >= 140) {
               st.currentClauseId = rawMatchedId;
               setActiveClauseId(rawMatchedId);
               st.forwardCandidateId = -1;
+
+              // Horizontal Reading Anchor: when user advances forward to the next clause on the active line,
+              // gently pull st.biasY toward activeCenterY if filtY is floating above the line (diffY < 0)
+              if (
+                uiConfigRef.current.faceAssist &&
+                diffY < -curLineHeight * 0.25 &&
+                diffY > -curLineHeight * 2.4
+              ) {
+                st.biasY = Math.max(
+                  -maxBiasPx,
+                  Math.min(maxBiasPx, st.biasY - 0.22 * diffY)
+                );
+              }
             }
             st.backwardCandidateId = -1;
           } else if (rawMatchedId < st.currentClauseId) {
@@ -641,7 +721,9 @@ export function useGazeTracking(options: UseGazeTrackingOptions) {
               if (st.backwardCandidateId !== rawMatchedId) {
                 st.backwardCandidateId = rawMatchedId;
                 st.backwardStartTime = timestampMs;
-              } else if (timestampMs - st.backwardStartTime >= 950) {
+              } else if (
+                timestampMs - st.backwardStartTime >= Math.max(950, backwardHoldMs)
+              ) {
                 st.currentClauseId = rawMatchedId;
                 setActiveClauseId(rawMatchedId);
                 st.backwardCandidateId = -1;

@@ -79,7 +79,16 @@ export function BottomLeftSliders({
                 max={sl.max}
                 value={sl.val}
                 onPointerDown={onSliderPointerDown}
-                onChange={(e) => sl.set(Number(e.target.value))}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (sl.label === "Next") {
+                    setNextLineSlider(val);
+                    setPrevLineSlider((p) => Math.min(p, val));
+                    setSkipLinesSlider((s) => Math.min(s, val));
+                  } else {
+                    sl.set(Math.min(val, nextLineSlider));
+                  }
+                }}
                 title={`${sl.label} Line Sensitivity: ${sl.val}`}
                 className="w-24 h-1 -rotate-90 accent-stone-700/70 bg-stone-400/25 rounded-lg cursor-pointer opacity-65 hover:opacity-100 transition-opacity shrink-0"
               />
