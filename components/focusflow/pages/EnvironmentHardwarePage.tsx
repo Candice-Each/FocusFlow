@@ -5,6 +5,7 @@ import type { HardwareCalibrationState } from "@/lib/focusflow/types";
 import { DEFAULT_HARDWARE_STATE } from "@/lib/focusflow/types";
 import { readHardwareState, writeHardwareState } from "@/lib/focusflow/store";
 import { playSubtleEarcon } from "@/lib/focusflow/earcon";
+import { createWebSpeechHandle, isWebSpeechSupported } from "@/lib/voice";
 import { NinePointGazeOverlay } from "./NinePointGazeOverlay";
 
 export function EnvironmentHardwarePage() {
@@ -26,6 +27,15 @@ export function EnvironmentHardwarePage() {
   const [micListening, setMicListening] = useState(false);
   const [micPromptText, setMicPromptText] = useState("Say a short command below.");
   const [micResultStatus, setMicResultStatus] = useState("No result yet");
+  const micHandleRef = useRef<ReturnType<typeof createWebSpeechHandle> | null>(null);
+
+  // Release the microphone if the page unmounts mid-test.
+  useEffect(() => {
+    return () => {
+      micHandleRef.current?.dispose();
+      micHandleRef.current = null;
+    };
+  }, []);
 
   useEffect(() => {
     const saved = readHardwareState();
@@ -119,51 +129,49 @@ export function EnvironmentHardwarePage() {
       }));
       return;
     }
-    const SpeechRec =
-      typeof window !== "undefined"
-        ? (window as unknown as { SpeechRecognition?: unknown; webkitSpeechRecognition?: unknown })
-            .SpeechRecognition ||
-          (window as unknown as { webkitSpeechRecognition?: unknown }).webkitSpeechRecognition
-        : null;
-    if (!SpeechRec) {
+
+    if (!isWebSpeechSupported()) {
       const fallback = "Next chapter";
       setMicPromptText(fallback);
       setMicResultStatus(`Recognised (Simulated): "${fallback}"`);
       setHardwareState((prev) => ({ ...prev, micTested: true, lastRecognisedText: fallback }));
       return;
     }
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const rec = new (SpeechRec as any)();
-      rec.lang = "en-US";
-      rec.continuous = false;
-      rec.interimResults = false;
-      setMicListening(true);
-      setMicResultStatus("Listening...");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      rec.onresult = (ev: any) => {
-        const transcript = String(ev.results?.[0]?.[0]?.transcript || "").trim();
+
+    // Shared recognizer from lib/voice: same reconnection and stale-partial
+    // handling as the reading page, so a mic that works here works there.
+    micHandleRef.current?.dispose();
+    const handle = createWebSpeechHandle((event) => {
+      if (event.kind === "final") {
+        const transcript = event.text.trim();
         setMicListening(false);
-        if (transcript) {
-          setMicPromptText(transcript);
-          setMicResultStatus(`Recognised: "${transcript}"`);
-          playSubtleEarcon(659.25, 140);
-          setHardwareState((prev) => ({
-            ...prev,
-            micTested: true,
-            lastRecognisedText: transcript,
-          }));
-        } else {
+        if (!transcript) {
           setMicResultStatus("Recognition failed — tap Recognise to retry");
+          playSubtleEarcon(220, 180);
+          return;
         }
-      };
-      rec.onerror = () => {
+        setMicPromptText(transcript);
+        setMicResultStatus(`Recognised: "${transcript}"`);
+        playSubtleEarcon(659.25, 140);
+        setHardwareState((prev) => ({
+          ...prev,
+          micTested: true,
+          lastRecognisedText: transcript,
+        }));
+        handle?.stop();
+        return;
+      }
+      if (event.kind === "error") {
         setMicListening(false);
         setMicResultStatus("Recognition failed — tap Recognise to retry");
-      };
-      rec.onend = () => setMicListening(false);
-      rec.start();
-    } catch {
+        playSubtleEarcon(220, 180);
+      }
+    }, { lang: "en-US" });
+
+    micHandleRef.current = handle;
+    setMicListening(true);
+    setMicResultStatus("Listening...");
+    if (!handle?.start()) {
       setMicListening(false);
       setMicResultStatus("Recognition failed — tap Recognise to retry");
     }
