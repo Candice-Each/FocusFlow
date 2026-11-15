@@ -143,7 +143,10 @@ export function useHeatmapRenderer(
   );
 
   const clearHeatmap = useCallback(() => {
-    heatGridRef.current.fill(0);
+    const grid = heatGridRef.current;
+    for (let i = 0; i < grid.length; i++) {
+      grid[i] = 0;
+    }
   }, []);
 
   return {

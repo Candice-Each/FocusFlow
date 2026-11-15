@@ -68,6 +68,8 @@ export default function SingleBookReadingInterface() {
   const [showBottomLeftBar, setShowBottomLeftBar] = useState(true);
   const [gestureControl, setGestureControl] = useState(true);
   const [faceAssist, setFaceAssist] = useState(true);
+  const [faceBehaviorEnabled, setFaceBehaviorEnabled] = useState(true);
+  const [faceDemoMode, setFaceDemoMode] = useState(false);
   const [showReticle, setShowReticle] = useState(true);
   const [showGazeCursor, setShowGazeCursor] = useState(true);
   const [bgBlur, setBgBlur] = useState(false);
@@ -133,6 +135,10 @@ export default function SingleBookReadingInterface() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    const demoTimer = window.setTimeout(
+      () => setFaceDemoMode(params.get("faceDemo") === "1"),
+      0
+    );
     const bookId = params.get("book");
     if (!bookId) return;
     // 只要带了 book 参数，就允许返回 Shelf
@@ -143,6 +149,7 @@ export default function SingleBookReadingInterface() {
       setCustomTitle(book.title);
       setRawText(book.content);
     }
+    return () => window.clearTimeout(demoTimer);
   }, []);
   const isNight = bgTheme === "Night";
   const lineHeightPx = Math.max(30, Math.round(fontSize * lineSpacingRatio));
@@ -240,15 +247,28 @@ export default function SingleBookReadingInterface() {
     }
   }, [pages, pageIdx, activeLineIdx, activeClauseId, setActiveClauseId]);
   const getSentenceTextById = useCallback((targetCid: number) => {
-    const parts: string[] = [];
-    pages.forEach((p) => {
-      p.forEach((row) => {
-        row.segments.forEach((seg) => {
-          if (seg.clauseId === targetCid) parts.push(seg.text.trim());
-        });
-      });
-    });
-    return parts.join(" ").trim();
+    const segments = pages.flatMap((p) =>
+      p.flatMap((row) => row.segments)
+    );
+    const targetIndex = segments.findIndex((seg) => seg.clauseId === targetCid);
+    if (targetIndex < 0) return "";
+    const endsSentence = (text: string) => /[.!?。！？…][\"'”’)]*$/.test(text.trim());
+
+    let startIndex = targetIndex;
+    while (startIndex > 0 && !endsSentence(segments[startIndex - 1].text)) {
+      startIndex -= 1;
+    }
+    let endIndex = targetIndex;
+    while (endIndex < segments.length - 1 && !endsSentence(segments[endIndex].text)) {
+      endIndex += 1;
+    }
+
+    return segments
+      .slice(startIndex, endIndex + 1)
+      .map((seg) => seg.text.trim())
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
   }, [pages]);
   const currentLines = pages[pageIdx] ?? [];
   const getActiveSentenceText = useCallback(() => {
@@ -427,10 +447,17 @@ export default function SingleBookReadingInterface() {
     [showToast]
   );
   const calibratePersonalFaceBaseline = useCallback(() => {
-    const tel = latestTelemetryRef.current;
-    if (!tel) {
-      showToast("Baseline Failed", "Ensure your face is visible in the camera frame");
-      return;
+    requestBaselineCapture();
+    setMultimodalTriggerState("Baseline Instructions");
+  }, [requestBaselineCapture]);
+
+  const beginPersonalFaceBaseline = useCallback(() => {
+    const started = startBaselineCapture();
+    if (started) {
+      setMultimodalTriggerState("Recording Personal Baseline");
+      showToast("Baseline Recording Started", "Read naturally for five seconds");
+    } else {
+      showToast("Baseline Failed", "Improve lighting and keep your face clearly visible");
     }
     setFaceBaseline({
       yaw: tel.yawDeg,
@@ -813,6 +840,13 @@ export default function SingleBookReadingInterface() {
         setWinHeatmap={setWinHeatmap}
         faceAssist={faceAssist}
         setFaceAssist={setFaceAssist}
+        faceBehaviorEnabled={faceBehaviorEnabled}
+        setFaceBehaviorEnabled={setFaceBehaviorEnabled}
+        faceAnalysisPhase={faceObservation.phase}
+        faceCandidate={faceObservation.cognitiveStrainCandidate}
+        readingDifficultySignal={readingDifficultySignal}
+        faceBaselineCaptureStatus={faceBaselineCapture.status}
+        faceBaselineCaptureProgress={faceBaselineCapture.progress}
         noCameraMode={noCameraMode}
         setNoCameraMode={setNoCameraMode}
         modelReady={modelReady}
@@ -914,7 +948,6 @@ export default function SingleBookReadingInterface() {
         activeLineIdx={activeLineIdx}
         readingSeconds={readingSeconds}
         formatTime={formatTime}
-        onStayPaused={() => setShowReturnConfirm(false)}
         onResume={() => {
           setIsOffScreenPaused(false);
           setShowReturnConfirm(false);
