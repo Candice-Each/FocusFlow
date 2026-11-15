@@ -95,6 +95,7 @@ interface RightSidebarProps {
 
   voiceError: boolean;
   toggleMicrophone: () => void;
+  listenOnce: () => void;
   micActive: boolean;
   voiceMode: "Read" | "Notes";
   setVoiceMode: React.Dispatch<React.SetStateAction<"Read" | "Notes">>;
@@ -191,6 +192,7 @@ export function RightSidebar(props: RightSidebarProps) {
     mouthScore,
     voiceError,
     toggleMicrophone,
+    listenOnce,
     micActive,
     voiceMode,
     setVoiceMode,
@@ -417,6 +419,7 @@ export function RightSidebar(props: RightSidebarProps) {
           <VoiceCard
             voiceError={voiceError}
             toggleMicrophone={toggleMicrophone}
+            listenOnce={listenOnce}
             micActive={micActive}
             voiceMode={voiceMode}
             setVoiceMode={setVoiceMode}

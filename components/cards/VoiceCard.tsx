@@ -6,6 +6,7 @@ import { ToggleSwitch } from "../ToggleSwitch";
 interface VoiceCardProps {
   voiceError: boolean;
   toggleMicrophone: () => void;
+  listenOnce: () => void;
   micActive: boolean;
   voiceMode: "Read" | "Notes";
   setVoiceMode: React.Dispatch<React.SetStateAction<"Read" | "Notes">>;
@@ -21,6 +22,7 @@ export function VoiceCard(props: VoiceCardProps) {
   const {
     voiceError,
     toggleMicrophone,
+    listenOnce,
     micActive,
     voiceMode,
     setVoiceMode,
@@ -74,6 +76,15 @@ export function VoiceCard(props: VoiceCardProps) {
             {m === "Read" ? "Read Mode" : "Notes Mode"}
           </button>
         ))}
+        <button
+          type="button"
+          onClick={listenOnce}
+          disabled={micActive}
+          className="ml-auto px-3 py-1 rounded-full text-xs border border-stone-300/80 whitespace-nowrap transition hover:border-stone-500 disabled:opacity-40 disabled:cursor-not-allowed"
+          title="Listen for a single phrase without keeping the microphone on"
+        >
+          Say once
+        </button>
       </div>
 
       <div
