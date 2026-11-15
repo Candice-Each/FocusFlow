@@ -17,12 +17,12 @@ import type {
 import { createGazeTrackingState } from "@/lib/types";
 import { useHeatmapRenderer } from "@/hooks/useHeatmapRenderer";
 import { useGazeTracking } from "@/hooks/useGazeTracking";
+import { useFaceBehavior } from "@/hooks/useFaceBehavior";
 import { useGesturePosture } from "@/hooks/useGesturePosture";
 import { usePagination } from "@/hooks/usePagination";
 import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
 import { playSubtleEarcon } from "@/lib/focusflow/earcon";
 import type { VoiceAction, ReaderSnapshot } from "@/lib/voice";
-
 import { TopBar } from "@/components/TopBar";
 import { LeftSidebar, type Bookmark } from "@/components/LeftSidebar";
 import { ReadingView } from "@/components/ReadingView";
@@ -83,7 +83,6 @@ export default function SingleBookReadingInterface() {
   const [clauseClickRatio, setClauseClickRatio] = useState(0.5);
   const [voiceMode, setVoiceMode] = useState<"Read" | "Notes">("Read");
   const [voiceLog, setVoiceLog] = useState('Say "hey focus" + command, or use the mic for one-shot');
-
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [bottomLeftExpanded, setBottomLeftExpanded] = useState(false);
@@ -144,7 +143,6 @@ export default function SingleBookReadingInterface() {
     );
     const bookId = params.get("book");
     if (!bookId) return;
-    // 只要带了 book 参数，就允许返回 Shelf
     setBackToShelfVisible(true);
     const books = readBooks();
     const book = books.find((b) => b.id === bookId);
@@ -240,6 +238,25 @@ export default function SingleBookReadingInterface() {
     uiInteractingRef,
     isDraggingSliderRef,
   });
+  const {
+    observation: faceObservation,
+    capture: faceBaselineCapture,
+    readingDifficultySignal,
+    requestBaselineCapture,
+    startBaselineCapture,
+  } = useFaceBehavior({
+    latestTelemetryRef,
+    trackingQuality,
+    cameraStatus,
+    enabled: faceBehaviorEnabled && !noCameraMode,
+    readingActive: !isOffScreenPaused && !showReturnConfirm,
+    promptsBlocked: isCalibrating || clauseMenuOpen,
+    isCalibrated,
+    pageIdx,
+    activeLineIdx,
+    activeClauseId,
+    demoMode: faceDemoMode,
+  });
   useEffect(() => {
     const row = pages[pageIdx]?.[activeLineIdx];
     if (!row || row.segments.length === 0) return;
@@ -256,7 +273,6 @@ export default function SingleBookReadingInterface() {
     const targetIndex = segments.findIndex((seg) => seg.clauseId === targetCid);
     if (targetIndex < 0) return "";
     const endsSentence = (text: string) => /[.!?。！？…][\"'”’)]*$/.test(text.trim());
-
     let startIndex = targetIndex;
     while (startIndex > 0 && !endsSentence(segments[startIndex - 1].text)) {
       startIndex -= 1;
@@ -265,7 +281,6 @@ export default function SingleBookReadingInterface() {
     while (endIndex < segments.length - 1 && !endsSentence(segments[endIndex].text)) {
       endIndex += 1;
     }
-
     return segments
       .slice(startIndex, endIndex + 1)
       .map((seg) => seg.text.trim())
@@ -379,7 +394,6 @@ export default function SingleBookReadingInterface() {
     requestBaselineCapture();
     setMultimodalTriggerState("Baseline Instructions");
   }, [requestBaselineCapture]);
-
   const beginPersonalFaceBaseline = useCallback(() => {
     const started = startBaselineCapture();
     if (started) {
@@ -388,18 +402,7 @@ export default function SingleBookReadingInterface() {
     } else {
       showToast("Baseline Failed", "Improve lighting and keep your face clearly visible");
     }
-    setFaceBaseline({
-      yaw: tel.yawDeg,
-      pitch: tel.pitchDeg,
-      roll: tel.rollDeg,
-      jaw: tel.jawOpen,
-    });
-    setMultimodalTriggerState("Baseline Locked");
-    showToast(
-      "Face Baseline Calibrated",
-      `Reference pose: Yaw ${tel.yawDeg} deg / Pitch ${tel.pitchDeg} deg / Roll ${tel.rollDeg} deg`
-    );
-  }, [latestTelemetryRef, showToast]);
+  }, [startBaselineCapture, showToast]);
   const startCalibration = useCallback(() => {
     calibSamplesRef.current = { X: [], Y: [] };
     collectingPointRef.current = null;
@@ -482,9 +485,6 @@ export default function SingleBookReadingInterface() {
     },
     [pages, showToast]
   );
-  // ==========================================
-  // Previous Page
-  // ==========================================
   const handlePagePrev = useCallback(() => {
     const prevP = Math.max(0, pageIdx - 1);
     const firstCid = pages[prevP]?.[0]?.segments?.[0]?.clauseId ?? 0;
@@ -497,9 +497,6 @@ export default function SingleBookReadingInterface() {
     stateRef.current.reachedRightZone = false;
     stateRef.current.maxLineX = 0;
   }, [pageIdx, pages, setPageIdx, setActiveLineIdx, setActiveClauseId]);
-  // ==========================================
-  // Next Page
-  // ==========================================
   const handlePageNext = useCallback(() => {
     const nextP = Math.min(pages.length - 1, pageIdx + 1);
     const firstCid = pages[nextP]?.[0]?.segments?.[0]?.clauseId ?? 0;
@@ -512,7 +509,20 @@ export default function SingleBookReadingInterface() {
     stateRef.current.reachedRightZone = false;
     stateRef.current.maxLineX = 0;
   }, [pageIdx, pages, setPageIdx, setActiveLineIdx, setActiveClauseId]);
-
+  // Hand gestures and upper-body posture detection.
+  const [motionEnabled, setMotionEnabled] = useState(false);
+  const {
+    status: handStatus,
+    posture: postureStatus,
+    baseline: postureBaseline,
+    postureDebug,
+    calibrate: calibratePosture,
+  } = useGesturePosture({
+    videoRef,
+    enabled: motionEnabled && !noCameraMode,
+    onPrev: handlePagePrev,
+    onNext: handlePageNext,
+  });
   const voiceSnapshotRef = useRef<ReaderSnapshot | null>(null);
   useEffect(() => {
     voiceSnapshotRef.current = {
@@ -530,7 +540,6 @@ export default function SingleBookReadingInterface() {
     pageIdx, pages.length, activeLineIdx, currentLines, activeClauseId,
     isSpeaking, voiceMode,
   ]);
-
   const getVoiceSnapshot = useCallback(
     (): ReaderSnapshot =>
       voiceSnapshotRef.current ?? {
@@ -540,7 +549,6 @@ export default function SingleBookReadingInterface() {
       },
     [pageIdx, pages.length, activeLineIdx, currentLines.length, isSpeaking, voiceMode]
   );
-
   const moveLineBy = useCallback(
     (delta: number) => {
       const target = Math.max(0, Math.min(currentLines.length - 1, activeLineIdx + delta));
@@ -554,24 +562,15 @@ export default function SingleBookReadingInterface() {
       setActiveLineIdx(target);
       setActiveClauseId(cid);
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [currentLines, activeLineIdx, activeClauseId]
   );
-
   const adjustFontSize = useCallback(
     (delta: number) => {
       setFontSize((prev) => Math.max(10, Math.min(40, prev + delta)));
     },
     []
   );
-
-  /**
-   * Voice action dispatch table.
-   *
-   * This is the host's half of the voice contract: the engine only says *what*
-   * happened, the page decides *how* it changes. Keep it exhaustive — a new
-   * `CommandId` should fail loudly here before it silently does nothing.
-   */
+  /** Voice action dispatch table. */
   const handleVoiceAction = useCallback(
     (action: VoiceAction) => {
       switch (action.kind) {
@@ -725,15 +724,9 @@ export default function SingleBookReadingInterface() {
           playSubtleEarcon(659.25, 140);
           break;
         case "STATUS":
-          // The engine is the single source of truth for the mode: a spoken
-          // "change to read mode" flips the engine, and the UI must follow.
-          // Functional update keeps `voiceMode` out of this callback's deps,
-          // which previously caused a re-render loop with the mode effect.
           setVoiceMode((prev) => (prev === action.mode ? prev : action.mode));
           break;
         case "PROMPT":
-          // Boundary notices ("already on the last page") are not failures and
-          // stay silent; only "not understood" / recognizer errors get the low cue.
           if (action.severity === "error") playSubtleEarcon(220, 180);
           break;
         case "PREVIEW":
@@ -747,14 +740,12 @@ export default function SingleBookReadingInterface() {
       showToast, setPageIdx, setActiveLineIdx, setActiveClauseId, setNotesModalOpen,
     ]
   );
-
   const { micActive, voiceError, toggleMicrophone, listenOnce } = useVoiceAssistant({
     mode: voiceMode,
     getSnapshot: getVoiceSnapshot,
     onAction: handleVoiceAction,
     onLog: setVoiceLog,
   });
-
   const onSentenceClick = useCallback(
     (lineIdx: number, clauseId: number, ratio: number) => {
       stateRef.current.currentLine = lineIdx;
@@ -1167,6 +1158,3 @@ export default function SingleBookReadingInterface() {
     </div>
   );
 }
-
-
-
