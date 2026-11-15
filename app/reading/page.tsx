@@ -1,8 +1,6 @@
 "use client";
-
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import "@/lib/console-filter";
-
 import { BOOK_CHAPTERS } from "@/lib/chapters";
 import { useRouter } from "next/navigation";
 import { readBooks } from "@/lib/focusflow/store";
@@ -19,6 +17,7 @@ import type {
 import { createGazeTrackingState } from "@/lib/types";
 import { useHeatmapRenderer } from "@/hooks/useHeatmapRenderer";
 import { useGazeTracking } from "@/hooks/useGazeTracking";
+import { useGesturePosture } from "@/hooks/useGesturePosture";
 import { usePagination } from "@/hooks/usePagination";
 import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
 import { playSubtleEarcon } from "@/lib/focusflow/earcon";
@@ -35,12 +34,10 @@ import { PaginationFooter } from "@/components/PaginationFooter";
 import { BottomLeftSliders } from "@/components/BottomLeftSliders";
 import { BuyModal } from "@/components/modals/BuyModal";
 import { NotesModal } from "@/components/modals/NotesModal";
-
 export default function SingleBookReadingInterface() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const rowsContainerRef = useRef<HTMLDivElement | null>(null);
   const meshCanvasRef = useRef<HTMLCanvasElement | null>(null);
-
   const router = useRouter();
   const [backToShelfVisible, setBackToShelfVisible] = useState(false);
   const [noCameraMode, setNoCameraMode] = useState(false);
@@ -48,7 +45,6 @@ export default function SingleBookReadingInterface() {
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>("Initializing");
   const [trackingQuality, setTrackingQuality] = useState<TrackingQuality>("Unavailable");
   const [fps, setFps] = useState(0);
-
   const [gazePoint, setGazePoint] = useState<GazePoint>({
     x: 400, y: 300, snappedX: 400, snappedY: 300, rawY: 300, biasY: 0,
   });
@@ -60,11 +56,9 @@ export default function SingleBookReadingInterface() {
   const [multimodalTriggerState, setMultimodalTriggerState] = useState<string>("Idle");
   const [isOffScreenPaused, setIsOffScreenPaused] = useState(false);
   const [showReturnConfirm, setShowReturnConfirm] = useState(false);
-
   const [chapterIdx, setChapterIdx] = useState(0);
   const [customTitle, setCustomTitle] = useState<string | null>(null);
   const [rawText, setRawText] = useState(BOOK_CHAPTERS[0].content);
-
   const [fontFamily, setFontFamily] = useState<FontFamily>("Georgia");
   const [bgTheme, setBgTheme] = useState<BgTheme>("Paper");
   const [textColor, setTextColor] = useState<TextColor>("Black");
@@ -76,9 +70,10 @@ export default function SingleBookReadingInterface() {
   const [menuShowHighlight, setMenuShowHighlight] = useState(true);
   const [menuShowNotes, setMenuShowNotes] = useState(true);
   const [showBottomLeftBar, setShowBottomLeftBar] = useState(true);
-
   const [gestureControl, setGestureControl] = useState(true);
   const [faceAssist, setFaceAssist] = useState(true);
+  const [faceBehaviorEnabled, setFaceBehaviorEnabled] = useState(true);
+  const [faceDemoMode, setFaceDemoMode] = useState(false);
   const [showReticle, setShowReticle] = useState(true);
   const [showGazeCursor, setShowGazeCursor] = useState(true);
   const [bgBlur, setBgBlur] = useState(false);
@@ -86,7 +81,6 @@ export default function SingleBookReadingInterface() {
   const [mouthScore, setMouthScore] = useState(0);
   const [clauseMenuOpen, setClauseMenuOpen] = useState(false);
   const [clauseClickRatio, setClauseClickRatio] = useState(0.5);
-
   const [voiceMode, setVoiceMode] = useState<"Read" | "Notes">("Read");
   const [voiceLog, setVoiceLog] = useState('Say "hey focus" + command, or use the mic for one-shot');
 
@@ -100,11 +94,9 @@ export default function SingleBookReadingInterface() {
   const [showPageHeatmap, setShowPageHeatmap] = useState(false);
   const [heatmapDecayMode, setHeatmapDecayMode] = useState(true);
   const [heatmapUseRawY, setHeatmapUseRawY] = useState(false);
-
   const [nextLineSlider, setNextLineSlider] = useState(65);
   const [prevLineSlider, setPrevLineSlider] = useState(30);
   const [skipLinesSlider, setSkipLinesSlider] = useState(30);
-
   const [highlightedClauses, setHighlightedClauses] = useState<Set<number>>(new Set());
   const [underlinedClauses, setUnderlinedClauses] = useState<Set<number>>(new Set());
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([
@@ -116,11 +108,9 @@ export default function SingleBookReadingInterface() {
   ]);
   const [noteInputText, setNoteInputText] = useState("");
   const [notesModalOpen, setNotesModalOpen] = useState(false);
-
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPurchased, setIsPurchased] = useState(false);
   const [buyModalOpen, setBuyModalOpen] = useState(false);
-
   const [statusToast, setStatusToast] = useState<ToastNotification | null>(null);
   const [dismissGuideBanner, setDismissGuideBanner] = useState(false);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -129,7 +119,6 @@ export default function SingleBookReadingInterface() {
     setStatusToast({ title, detail });
     toastTimerRef.current = setTimeout(() => setStatusToast(null), 2600);
   }, []);
-
   const [isCalibrating, setIsCalibrating] = useState(false);
   const [calibStep, setCalibStep] = useState(0);
   const [calibSampleProgress, setCalibSampleProgress] = useState(0);
@@ -137,7 +126,6 @@ export default function SingleBookReadingInterface() {
   const weightsRef = useRef<number[][] | null>(null);
   const calibSamplesRef = useRef<CalibrationSamples>({ X: [], Y: [] });
   const collectingPointRef = useRef<CalibCollection | null>(null);
-
   const [readingSeconds, setReadingSeconds] = useState(0);
   useEffect(() => {
     const timer = setInterval(() => {
@@ -147,38 +135,36 @@ export default function SingleBookReadingInterface() {
     }, 1000);
     return () => clearInterval(timer);
   }, [isOffScreenPaused, showReturnConfirm, isCalibrating]);
-
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
+    const demoTimer = window.setTimeout(
+      () => setFaceDemoMode(params.get("faceDemo") === "1"),
+      0
+    );
     const bookId = params.get("book");
     if (!bookId) return;
-    
     // 只要带了 book 参数，就允许返回 Shelf
     setBackToShelfVisible(true);
-    
     const books = readBooks();
     const book = books.find((b) => b.id === bookId);
     if (book?.content) {
       setCustomTitle(book.title);
       setRawText(book.content);
     }
+    return () => window.clearTimeout(demoTimer);
   }, []);
-
   const isNight = bgTheme === "Night";
   const lineHeightPx = Math.max(30, Math.round(fontSize * lineSpacingRatio));
   const theme = buildThemeClasses(isNight, bgTheme, textColor);
   const currentChapterTitle = customTitle || BOOK_CHAPTERS[chapterIdx]?.title || "Why not chase each word";
-
   const getFontCssString = useCallback(
     (sizePx: number) => buildFontCss(fontFamily, sizePx),
     [fontFamily]
   );
-
   const stateRef = useRef<GazeTrackingState>(createGazeTrackingState());
   const faceBaselineRef = useRef<FaceBaseline | null>(null);
   useEffect(() => { faceBaselineRef.current = faceBaseline; }, [faceBaseline]);
-
   const uiInteractingRef = useRef(false);
   const isDraggingSliderRef = useRef(false);
   useEffect(() => {
@@ -195,7 +181,6 @@ export default function SingleBookReadingInterface() {
       window.removeEventListener("pointercancel", clearSliderDrag);
     };
   }, []);
-
   const prevRawTextRef = useRef(rawText);
   const { pages, pageIdx, setPageIdx, activeLineIdx, setActiveLineIdx, activeClauseId, setActiveClauseId } = usePagination({
     rawText, readingWidthPct, fontSize, fontFamily, getFontCssString, rowsContainerRef,
@@ -203,7 +188,6 @@ export default function SingleBookReadingInterface() {
       const st = stateRef.current;
       const isNewText = prevRawTextRef.current !== rawText;
       prevRawTextRef.current = rawText;
-
       if (isNewText) {
         st.currentLine = 0;
         st.currentClauseId = firstClauseId;
@@ -227,10 +211,8 @@ export default function SingleBookReadingInterface() {
       }
     },
   });
-
   const layoutRef = useRef<ReadingLayout>({ pages: [], pageIdx: 0 });
   useEffect(() => { layoutRef.current = { pages, pageIdx }; }, [pages, pageIdx]);
-
   const uiConfigRef = useRef<GazeTrackingConfig>({
     meshShowVideoBg: false, heatmapDecayMode: true, heatmapUseRawY: false,
     gestureControl: true, faceAssist: true, noCameraMode: false,
@@ -246,9 +228,7 @@ export default function SingleBookReadingInterface() {
   }, [meshShowVideoBg, heatmapDecayMode, heatmapUseRawY, gestureControl, faceAssist,
     noCameraMode, isOffScreenPaused, showReturnConfirm, clauseMenuOpen, isNight,
     nextLineSlider, prevLineSlider, skipLinesSlider, lineHeightPx]);
-
   const { miniHeatmapCanvasRef, fullHeatmapCanvasRef, updateAndRenderHeatmaps, clearHeatmap } = useHeatmapRenderer(uiConfigRef);
-
   const { latestTelemetryRef } = useGazeTracking({
     noCameraMode, stateRef, weightsRef, uiConfigRef, layoutRef, faceBaselineRef,
     collectingPointRef, calibSamplesRef, videoRef, meshCanvasRef, rowsContainerRef,
@@ -260,7 +240,6 @@ export default function SingleBookReadingInterface() {
     uiInteractingRef,
     isDraggingSliderRef,
   });
-
   useEffect(() => {
     const row = pages[pageIdx]?.[activeLineIdx];
     if (!row || row.segments.length === 0) return;
@@ -270,27 +249,36 @@ export default function SingleBookReadingInterface() {
       setActiveClauseId(fallbackCid);
     }
   }, [pages, pageIdx, activeLineIdx, activeClauseId, setActiveClauseId]);
-
   const getSentenceTextById = useCallback((targetCid: number) => {
-    const parts: string[] = [];
-    pages.forEach((p) => {
-      p.forEach((row) => {
-        row.segments.forEach((seg) => {
-          if (seg.clauseId === targetCid) parts.push(seg.text.trim());
-        });
-      });
-    });
-    return parts.join(" ").trim();
+    const segments = pages.flatMap((p) =>
+      p.flatMap((row) => row.segments)
+    );
+    const targetIndex = segments.findIndex((seg) => seg.clauseId === targetCid);
+    if (targetIndex < 0) return "";
+    const endsSentence = (text: string) => /[.!?。！？…][\"'”’)]*$/.test(text.trim());
+
+    let startIndex = targetIndex;
+    while (startIndex > 0 && !endsSentence(segments[startIndex - 1].text)) {
+      startIndex -= 1;
+    }
+    let endIndex = targetIndex;
+    while (endIndex < segments.length - 1 && !endsSentence(segments[endIndex].text)) {
+      endIndex += 1;
+    }
+
+    return segments
+      .slice(startIndex, endIndex + 1)
+      .map((seg) => seg.text.trim())
+      .join(" ")
+      .replace(/\s+/g, " ")
+      .trim();
   }, [pages]);
-
   const currentLines = pages[pageIdx] ?? [];
-
   const getActiveSentenceText = useCallback(() => {
     const activeRow = currentLines[activeLineIdx];
     const seg = activeRow?.segments.find((s) => s.clauseId === activeClauseId) ?? activeRow?.segments[0];
     return seg ? seg.text.trim() : getSentenceTextById(activeClauseId);
   }, [currentLines, activeLineIdx, activeClauseId, getSentenceTextById]);
-
   const toggleTtsReading = useCallback((readSingleSentence = false) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       showToast("TTS Unavailable", "Web Speech synthesis is not supported in this browser");
@@ -307,7 +295,6 @@ export default function SingleBookReadingInterface() {
         ? getActiveSentenceText()
         : currentLines.map((l) => l.segments.map((s) => s.text).join(" ")).join(" ");
       if (!textToRead) return;
-
       window.speechSynthesis.cancel();
       const utter = new SpeechSynthesisUtterance(textToRead);
       utter.lang = "en-US";
@@ -324,7 +311,6 @@ export default function SingleBookReadingInterface() {
       setIsSpeaking(false);
     }
   }, [isSpeaking, getActiveSentenceText, currentLines, pageIdx, showToast]);
-
   const addBookmarkForActiveClause = useCallback(() => {
     const full = getActiveSentenceText() || "Selected sentence";
     const snippet = full.slice(0, 34) + (full.length > 34 ? "......" : "");
@@ -335,14 +321,12 @@ export default function SingleBookReadingInterface() {
     setClauseMenuOpen(false);
     showToast("Bookmark Saved", `Page ${pageIdx + 1} / Row ${activeLineIdx + 1}`);
   }, [getActiveSentenceText, activeClauseId, pageIdx, activeLineIdx, showToast]);
-
   const copyActiveClause = useCallback(() => {
     const txt = getActiveSentenceText();
     try { navigator.clipboard?.writeText(txt); } catch { }
     setClauseMenuOpen(false);
     showToast("Sentence Copied", txt.slice(0, 42) + (txt.length > 42 ? "..." : ""));
   }, [getActiveSentenceText, showToast]);
-
   const toggleHighlightActiveClause = useCallback(() => {
     setHighlightedClauses((prev) => {
       const next = new Set(prev);
@@ -357,7 +341,6 @@ export default function SingleBookReadingInterface() {
     });
     setClauseMenuOpen(false);
   }, [activeClauseId, showToast]);
-
   const toggleUnderlineActiveClause = useCallback(() => {
     setUnderlinedClauses((prev) => {
       const next = new Set(prev);
@@ -367,7 +350,6 @@ export default function SingleBookReadingInterface() {
     });
     setClauseMenuOpen(false);
   }, [activeClauseId, showToast]);
-
   const addActiveSentenceToNotes = useCallback(() => {
     const txt = getActiveSentenceText();
     if (txt) {
@@ -393,12 +375,18 @@ export default function SingleBookReadingInterface() {
     },
     [showToast]
   );
-
   const calibratePersonalFaceBaseline = useCallback(() => {
-    const tel = latestTelemetryRef.current;
-    if (!tel) {
-      showToast("Baseline Failed", "Ensure your face is visible in the camera frame");
-      return;
+    requestBaselineCapture();
+    setMultimodalTriggerState("Baseline Instructions");
+  }, [requestBaselineCapture]);
+
+  const beginPersonalFaceBaseline = useCallback(() => {
+    const started = startBaselineCapture();
+    if (started) {
+      setMultimodalTriggerState("Recording Personal Baseline");
+      showToast("Baseline Recording Started", "Read naturally for five seconds");
+    } else {
+      showToast("Baseline Failed", "Improve lighting and keep your face clearly visible");
     }
     setFaceBaseline({
       yaw: tel.yawDeg,
@@ -412,7 +400,6 @@ export default function SingleBookReadingInterface() {
       `Reference pose: Yaw ${tel.yawDeg} deg / Pitch ${tel.pitchDeg} deg / Roll ${tel.rollDeg} deg`
     );
   }, [latestTelemetryRef, showToast]);
-
   const startCalibration = useCallback(() => {
     calibSamplesRef.current = { X: [], Y: [] };
     collectingPointRef.current = null;
@@ -420,7 +407,6 @@ export default function SingleBookReadingInterface() {
     setCalibStep(0);
     setIsCalibrating(true);
   }, []);
-
   const handleCalibPointClick = useCallback(
     (tx: number, ty: number) => {
       if (collectingPointRef.current && collectingPointRef.current.remaining > 0) return;
@@ -432,7 +418,6 @@ export default function SingleBookReadingInterface() {
         remaining: 20,
         total: 20,
       };
-
       const checkTimer = setInterval(() => {
         if (!collectingPointRef.current) {
           clearInterval(checkTimer);
@@ -442,7 +427,6 @@ export default function SingleBookReadingInterface() {
           clearInterval(checkTimer);
           collectingPointRef.current = null;
           setCalibSampleProgress(0);
-
           if (calibStep < CALIBRATION_POINTS.length - 1) {
             setCalibStep((s) => s + 1);
           } else {
@@ -471,7 +455,6 @@ export default function SingleBookReadingInterface() {
     },
     [calibStep, pages, pageIdx, clearHeatmap, setActiveLineIdx, setActiveClauseId, showToast]
   );
-
   const handleSelectChapter = useCallback(
     (idx: number) => {
       setCustomTitle(null);
@@ -482,14 +465,12 @@ export default function SingleBookReadingInterface() {
     },
     [showToast]
   );
-
   const handleSelectBookmark = useCallback(
     (bm: Bookmark) => {
       const safeP = Math.max(0, Math.min(bm.page, pages.length - 1));
       const safeL = Math.max(0, Math.min(bm.line, (pages[safeP]?.length ?? 1) - 1));
       const rowSegs = pages[safeP]?.[safeL]?.segments ?? [];
       const validCid = rowSegs.some((s) => s.clauseId === bm.id) ? bm.id : rowSegs[0]?.clauseId ?? 0;
-
       setPageIdx(safeP);
       setActiveLineIdx(safeL);
       setActiveClauseId(validCid);
@@ -501,7 +482,9 @@ export default function SingleBookReadingInterface() {
     },
     [pages, showToast]
   );
-
+  // ==========================================
+  // Previous Page
+  // ==========================================
   const handlePagePrev = useCallback(() => {
     const prevP = Math.max(0, pageIdx - 1);
     const firstCid = pages[prevP]?.[0]?.segments?.[0]?.clauseId ?? 0;
@@ -514,7 +497,9 @@ export default function SingleBookReadingInterface() {
     stateRef.current.reachedRightZone = false;
     stateRef.current.maxLineX = 0;
   }, [pageIdx, pages, setPageIdx, setActiveLineIdx, setActiveClauseId]);
-
+  // ==========================================
+  // Next Page
+  // ==========================================
   const handlePageNext = useCallback(() => {
     const nextP = Math.min(pages.length - 1, pageIdx + 1);
     const firstCid = pages[nextP]?.[0]?.segments?.[0]?.clauseId ?? 0;
@@ -784,7 +769,6 @@ export default function SingleBookReadingInterface() {
     },
     [setActiveLineIdx, setActiveClauseId]
   );
-
   const onSentenceDoubleClick = useCallback(
     (lineIdx: number, clauseId: number, ratio: number) => {
       stateRef.current.currentLine = lineIdx;
@@ -796,7 +780,6 @@ export default function SingleBookReadingInterface() {
     },
     [setActiveLineIdx, setActiveClauseId]
   );
-
   const onPointerMoveGaze = useCallback(
     (e: React.PointerEvent) => {
       if (noCameraMode || !isCalibrated) {
@@ -805,19 +788,91 @@ export default function SingleBookReadingInterface() {
     },
     [noCameraMode, isCalibrated]
   );
-
   const unifiedSurfaceClass = theme.surface;
+  const hasPostureWarning = motionEnabled && postureBaseline !== null &&
+    (postureStatus.includes("tilted") || postureStatus.includes("slouch") ||
+      postureStatus.includes("Too close") || postureStatus.includes("Shoulders raised") ||
+      postureStatus.includes("One shoulder raised"));
   const unifiedSubtleBoxClass = theme.subtle;
   const rowBadgeWeakContrastClass = theme.rowBadge;
   const dimBackdropActive = leftSidebarOpen || rightSidebarOpen;
   const showGuideBanner =
     !isCalibrated && !isCalibrating && !showReturnConfirm && !statusToast && !dismissGuideBanner;
-
   return (
     <div
       className={`min-h-screen w-full flex flex-col justify-between select-none transition-colors duration-300 relative overflow-x-hidden ${theme.pageBg} ${theme.textTone}`}
     >
-
+      {hasPostureWarning && (
+        <>
+          <div
+            aria-hidden="true"
+            className="pointer-events-none fixed inset-0 z-40"
+            style={{ boxShadow: "inset 0 0 85px 22px rgba(220, 38, 38, 0.28)" }}
+          />
+          <div
+            role="alert"
+            className="pointer-events-none fixed top-16 left-1/2 -translate-x-1/2 z-50 rounded-full border border-red-300 bg-red-50/95 px-5 py-2 text-sm font-medium text-red-700 shadow-md"
+          >
+            ⚠ {postureStatus}
+          </div>
+        </>
+      )}
+      {/* Gesture + Posture Control Panel */}
+<div
+        className="
+          fixed right-3 bottom-20 z-40
+          w-64 rounded-xl border
+          border-stone-300
+          bg-white/95 text-stone-900
+          shadow-lg p-3 text-xs
+          space-y-2 select-text
+        "
+      >
+        <div className="flex items-center justify-between gap-2">
+          <strong>Hand + Posture</strong>
+          <button
+            type="button"
+            className="
+              rounded bg-stone-800
+              text-white px-2 py-1
+            "
+            onClick={() =>
+              setMotionEnabled((value) => !value)
+            }
+          >
+            {motionEnabled ? "Stop" : "Start"}
+          </button>
+        </div>
+        <div className="break-words">
+          Hand: {handStatus}
+        </div>
+        <div
+          role="status"
+          className={hasPostureWarning ? "font-bold text-red-700" : ""}
+        >
+          Posture: {postureStatus}
+        </div>
+        <div className="text-[10px] text-stone-500 break-words">{postureDebug}</div>
+        <button
+          type="button"
+          className="
+            rounded border border-stone-400
+            px-2 py-1 disabled:opacity-40
+          "
+          disabled={!motionEnabled || noCameraMode}
+          onClick={calibratePosture}
+        >
+          {postureBaseline
+            ? "Recalibrate upright posture"
+            : "Calibrate upright posture"}
+        </button>
+        <p className="text-[10px] text-stone-600">
+          Open palm in the right zone: next page;
+          left zone: previous page. Hold for 0.4s.
+          Lower hand between turns.
+          Posture alerts are approximate.
+        </p>
+      </div>
       <canvas
         ref={fullHeatmapCanvasRef}
         width={240}
@@ -825,7 +880,6 @@ export default function SingleBookReadingInterface() {
         className={`pointer-events-none fixed inset-0 w-full h-full z-30 transition-opacity duration-200 ${showPageHeatmap && isCalibrated && !isCalibrating ? "opacity-80" : "opacity-0"
           }`}
       />
-
       <MonitorWindows
         winVideo={winVideo}
         setWinVideo={setWinVideo}
@@ -853,7 +907,6 @@ export default function SingleBookReadingInterface() {
         onClearHeatmap={clearHeatmap}
         unifiedSubtleBoxClass={unifiedSubtleBoxClass}
       />
-
       <TopBar
         leftSidebarOpen={leftSidebarOpen}
         setLeftSidebarOpen={setLeftSidebarOpen}
@@ -881,14 +934,12 @@ export default function SingleBookReadingInterface() {
         onPointerEnter={() => { uiInteractingRef.current = true; }}
         onPointerLeave={() => { if (!isDraggingSliderRef.current) uiInteractingRef.current = false; }}
       />
-
       {dimBackdropActive && (
         <div
           onClick={() => { setLeftSidebarOpen(false); setRightSidebarOpen(false); }}
           className="fixed inset-0 bg-black/25 z-20 transition-opacity"
         />
       )}
-
       <LeftSidebar
         open={leftSidebarOpen}
         chapters={BOOK_CHAPTERS}
@@ -902,7 +953,6 @@ export default function SingleBookReadingInterface() {
         onPointerEnter={() => { uiInteractingRef.current = true; }}
         onPointerLeave={() => { if (!isDraggingSliderRef.current) uiInteractingRef.current = false; }}
       />
-
       <BottomLeftSliders
         visible={showBottomLeftBar}
         expanded={bottomLeftExpanded}
@@ -921,7 +971,6 @@ export default function SingleBookReadingInterface() {
           uiInteractingRef.current = true;
         }}
       />
-
       <RightSidebar
         open={rightSidebarOpen}
         readingStats={readingStats}
@@ -944,6 +993,13 @@ export default function SingleBookReadingInterface() {
         setWinHeatmap={setWinHeatmap}
         faceAssist={faceAssist}
         setFaceAssist={setFaceAssist}
+        faceBehaviorEnabled={faceBehaviorEnabled}
+        setFaceBehaviorEnabled={setFaceBehaviorEnabled}
+        faceAnalysisPhase={faceObservation.phase}
+        faceCandidate={faceObservation.cognitiveStrainCandidate}
+        readingDifficultySignal={readingDifficultySignal}
+        faceBaselineCaptureStatus={faceBaselineCapture.status}
+        faceBaselineCaptureProgress={faceBaselineCapture.progress}
         noCameraMode={noCameraMode}
         setNoCameraMode={setNoCameraMode}
         modelReady={modelReady}
@@ -994,7 +1050,6 @@ export default function SingleBookReadingInterface() {
         onPointerLeave={() => { if (!isDraggingSliderRef.current) uiInteractingRef.current = false; }}
         onInteractChange={(active) => { uiInteractingRef.current = active; }}
       />
-
       <ReadingView
         title={currentChapterTitle}
         lines={currentLines}
@@ -1032,7 +1087,6 @@ export default function SingleBookReadingInterface() {
         onAddToNotes={addActiveSentenceToNotes}
         onCopy={copyActiveClause}
       />
-
       {showGazeCursor && !isCalibrating && (isCalibrated || noCameraMode) && (
         <div className="pointer-events-none fixed inset-0 z-30">
           <div
@@ -1041,7 +1095,6 @@ export default function SingleBookReadingInterface() {
           />
         </div>
       )}
-
       <StatusBanners
         toast={statusToast}
         showReturnConfirm={showReturnConfirm}
@@ -1049,7 +1102,6 @@ export default function SingleBookReadingInterface() {
         activeLineIdx={activeLineIdx}
         readingSeconds={readingSeconds}
         formatTime={formatTime}
-        onStayPaused={() => setShowReturnConfirm(false)}
         onResume={() => {
           setIsOffScreenPaused(false);
           setShowReturnConfirm(false);
@@ -1061,14 +1113,12 @@ export default function SingleBookReadingInterface() {
         unifiedSurfaceClass={unifiedSurfaceClass}
         unifiedSubtleBoxClass={unifiedSubtleBoxClass}
       />
-
       <PaginationFooter
         pageIdx={pageIdx}
         pageCount={pages.length}
         onPrev={handlePagePrev}
         onNext={handlePageNext}
       />
-
       <BuyModal
         open={buyModalOpen}
         onClose={() => setBuyModalOpen(false)}
@@ -1082,7 +1132,6 @@ export default function SingleBookReadingInterface() {
         unifiedSurfaceClass={unifiedSurfaceClass}
         unifiedSubtleBoxClass={unifiedSubtleBoxClass}
       />
-
       <NotesModal
         open={notesModalOpen}
         onClose={() => setNotesModalOpen(false)}
@@ -1104,7 +1153,6 @@ export default function SingleBookReadingInterface() {
         unifiedSurfaceClass={unifiedSurfaceClass}
         unifiedSubtleBoxClass={unifiedSubtleBoxClass}
       />
-
       <CalibrationOverlay
         isCalibrating={isCalibrating}
         calibStep={calibStep}
@@ -1119,3 +1167,6 @@ export default function SingleBookReadingInterface() {
     </div>
   );
 }
+
+
+

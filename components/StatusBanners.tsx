@@ -10,7 +10,6 @@ interface StatusBannersProps {
   activeLineIdx: number;
   readingSeconds: number;
   formatTime: (sec: number) => string;
-  onStayPaused: () => void;
   onResume: () => void;
   showGuideBanner: boolean;
   noCameraMode: boolean;
@@ -26,7 +25,6 @@ export function StatusBanners({
   activeLineIdx,
   readingSeconds,
   formatTime,
-  onStayPaused,
   onResume,
   showGuideBanner,
   noCameraMode,
@@ -61,18 +59,11 @@ export function StatusBanners({
             </div>
             <p className="text-[11px] opacity-75 leading-relaxed">
               Paused at Page {pageIdx + 1}, Row {activeLineIdx + 1} (
-              {formatTime(readingSeconds)} recorded). Click Resume or
-              nod/open mouth to continue timing.
+              {formatTime(readingSeconds)} recorded). Reading remains paused
+              until you choose Resume.
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={onStayPaused}
-              className={`px-3 py-1.5 rounded-xl border text-xs transition ${unifiedSubtleBoxClass}`}
-            >
-              Stay Paused
-            </button>
             <button
               type="button"
               onClick={onResume}
