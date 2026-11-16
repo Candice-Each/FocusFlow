@@ -510,66 +510,118 @@ export function FaceAssistLayer(props: FaceAssistLayerProps) {
         </div>
       )}
 
-      {demoMode && (
-        <aside
-          className={`fixed bottom-5 left-24 z-[65] rounded-2xl border shadow-xl backdrop-blur-xl ${surface} ${
-            inspectorOpen ? "w-80 p-4" : "w-auto px-4 py-3"
-          }`}
+      <aside
+        className={`fixed bottom-5 left-24 z-[65] rounded-2xl border shadow-xl backdrop-blur-xl ${surface} ${
+          inspectorOpen ? "w-80 p-4" : "w-auto px-4 py-3"
+        }`}
+      >
+        <button
+          type="button"
+          onClick={() => setInspectorOpen((value) => !value)}
+          className="flex w-full items-center justify-between text-left"
         >
-          <button
-            type="button"
-            onClick={() => setInspectorOpen((value) => !value)}
-            className="flex w-full items-center justify-between text-left"
-          >
-            <span className="text-xs font-semibold">Face-assist test panel</span>
-            <span className="text-xs opacity-50">{inspectorOpen ? "Hide" : "Show"}</span>
-          </button>
-          {inspectorOpen && (
-            <div className="mt-3 space-y-3 text-[11px]">
-              <div className={`rounded-xl border p-3 ${subtle}`}>
-                <div className="flex justify-between"><span>Analysis</span><strong>{PHASE_LABELS[observation.phase]}</strong></div>
-                <div className="mt-1 flex justify-between"><span>Tracking gate</span><strong>{observation.trackingGate}</strong></div>
-                <div className="mt-1 flex justify-between"><span>Facial candidate</span><strong>{observation.cognitiveStrainCandidate ? "Yes" : "No"}</strong></div>
-                {observation.activeStrainSignals.length > 0 && (
-                  <div className="mt-1 leading-relaxed opacity-60">
-                    Signals: {observation.activeStrainSignals.join(", ")} · {(observation.strainConditionMs / 1000).toFixed(1)}s
-                  </div>
-                )}
-                <div className="mt-1 flex justify-between"><span>Reading difficulty</span><strong>{readingDifficultySignal ? "Yes" : "No"}</strong></div>
+          <span className="text-xs font-semibold">
+            {demoMode ? "Face-assist test panel" : "Face Assist"}
+          </span>
+          <span className="text-xs opacity-50">
+            {inspectorOpen ? "Hide" : "Show"}
+          </span>
+        </button>
+        {inspectorOpen && (
+          <div className="mt-3 space-y-3 text-[11px]">
+            <div className={`rounded-xl border p-3 ${subtle}`}>
+              <div className="flex justify-between">
+                <span>Analysis</span>
+                <strong>{PHASE_LABELS[observation.phase]}</strong>
               </div>
-
-              <div>
-                <div className="mb-1 flex justify-between opacity-65">
-                  <span>Personal baseline</span>
-                  <span>{capture.status === "collecting" ? `${capture.progress}%` : baseline ? `${baseline.sampleCount} samples` : "Not ready"}</span>
-                </div>
-                <div className="h-1.5 overflow-hidden rounded-full bg-stone-300/35">
-                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${capture.status === "ready" ? 100 : capture.progress}%` }} />
-                </div>
-                <p className="mt-1 leading-relaxed opacity-55">{capture.message}</p>
-                <button type="button" onClick={onRequestBaseline} disabled={capture.status === "collecting"} className="mt-2 rounded-lg bg-stone-900 px-3 py-1.5 text-[11px] text-white disabled:opacity-40">
-                  {capture.status === "collecting" ? "Recording…" : baseline ? "Re-record baseline" : "Record 5s baseline"}
-                </button>
+              <div className="mt-1 flex justify-between">
+                <span>Tracking gate</span>
+                <strong>{observation.trackingGate}</strong>
               </div>
+              <div className="mt-1 flex justify-between">
+                <span>Facial candidate</span>
+                <strong>
+                  {observation.cognitiveStrainCandidate ? "Yes" : "No"}
+                </strong>
+              </div>
+              {observation.activeStrainSignals.length > 0 && (
+                <div className="mt-1 leading-relaxed opacity-60">
+                  Signals: {observation.activeStrainSignals.join(", ")} ·{" "}
+                  {(observation.strainConditionMs / 1000).toFixed(1)}s
+                </div>
+              )}
+              <div className="mt-1 flex justify-between">
+                <span>Reading difficulty</span>
+                <strong>{readingDifficultySignal ? "Yes" : "No"}</strong>
+              </div>
+            </div>
 
+            <div>
+              <div className="mb-1 flex justify-between opacity-65">
+                <span>Personal baseline</span>
+                <span>
+                  {capture.status === "collecting"
+                    ? `${capture.progress}%`
+                    : baseline
+                      ? `${baseline.sampleCount} samples`
+                      : "Not ready"}
+                </span>
+              </div>
+              <div className="h-1.5 overflow-hidden rounded-full bg-stone-300/35">
+                <div
+                  className="h-full bg-emerald-500 transition-all"
+                  style={{
+                    width: `${capture.status === "ready" ? 100 : capture.progress}%`,
+                  }}
+                />
+              </div>
+              <p className="mt-1 leading-relaxed opacity-55">
+                {capture.message}
+              </p>
+              <button
+                type="button"
+                onClick={onRequestBaseline}
+                disabled={capture.status === "collecting"}
+                className="mt-2 rounded-lg bg-stone-900 px-3 py-1.5 text-[11px] text-white disabled:opacity-40"
+              >
+                {capture.status === "collecting"
+                  ? "Recording…"
+                  : baseline
+                    ? "Re-record baseline"
+                    : "Record 5s baseline"}
+              </button>
+            </div>
+
+            {demoMode && (
               <div>
                 <p className="mb-1 opacity-55">Preview prompt layouts</p>
                 <div className="flex flex-wrap gap-1.5">
-                  {(["understanding", "posture", "rest"] as FacePromptKind[]).map((kind) => (
-                    <button key={kind} type="button" onClick={() => onRequestDemoPrompt(kind)} className={`rounded-lg border px-2 py-1 capitalize ${subtle}`}>
+                  {(
+                    ["understanding", "posture", "rest"] as FacePromptKind[]
+                  ).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onClick={() => onRequestDemoPrompt(kind)}
+                      className={`rounded-lg border px-2 py-1 capitalize ${subtle}`}
+                    >
                       {kind}
                     </button>
                   ))}
                 </div>
               </div>
+            )}
 
-              <p className="border-t border-stone-300/25 pt-2 leading-relaxed opacity-50">
-                Local numeric features only. Raw video is not stored. Demo thresholds are lowered and shortened for testing. Posture reminders use sustained baseline-relative changes and cooldowns.
-              </p>
-            </div>
-          )}
-        </aside>
-      )}
+            <p className="border-t border-stone-300/25 pt-2 leading-relaxed opacity-50">
+              Local numeric features only. Raw video is not stored. {demoMode
+                  ? "Demo thresholds are lowered and shortened for testing."
+                  : "Normal reading thresholds are active."}{" "}
+              Posture reminders use sustained baseline-relative changes and
+              cooldowns.
+            </p>
+          </div>
+        )}
+      </aside>
     </>
   );
 }
