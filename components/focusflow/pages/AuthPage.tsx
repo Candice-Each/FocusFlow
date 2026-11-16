@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FocusFlowBrandMark } from "../FocusFlowBrandMark";
 import { writeUserName } from "@/lib/focusflow/store";
@@ -11,6 +11,9 @@ interface AuthPageProps {
 
 export function AuthPage({ mode }: AuthPageProps) {
   const router = useRouter();
+  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,6 +22,8 @@ export function AuthPage({ mode }: AuthPageProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting || isPending) return;
+
     if (!email.trim() || !password.trim() || (mode === "signup" && !name.trim())) {
       setErrorMsg("Please fill in all required fields.");
       return;
@@ -28,12 +33,21 @@ export function AuthPage({ mode }: AuthPageProps) {
       return;
     }
     setErrorMsg(null);
-    const displayUser = mode === "signup" ? name.trim() : email.split("@")[0] || "Reader";
-    writeUserName(displayUser);
-    router.push("/shelf");
+    setIsSubmitting(true);
+
+    setTimeout(() => {
+      const displayUser = mode === "signup" ? name.trim() : email.split("@")[0] || "Reader";
+      writeUserName(displayUser);
+
+      startTransition(() => {
+        router.push("/shelf");
+      });
+      setIsSubmitting(false);
+    }, 300);
   };
 
   const goOtherMode = () => {
+    if (isSubmitting || isPending) return;
     setErrorMsg(null);
     router.push(mode === "login" ? "/signup" : "/login");
   };
@@ -54,91 +68,90 @@ export function AuthPage({ mode }: AuthPageProps) {
             : "Signing up opens the shelf. The camera stays off."}
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="space-y-5">
           {mode === "signup" && (
             <div>
-              <label className="block text-[11px] text-stone-500 mb-1.5">Name</label>
+              <label className="block text-sm font-medium text-stone-600 mb-2">Name</label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="w-full bg-transparent border-b border-stone-300 focus:border-stone-900 py-2 text-sm text-stone-900 focus:outline-none transition"
+                disabled={isSubmitting || isPending}
+                className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 transition disabled:opacity-50"
+                placeholder="Your display name"
               />
             </div>
           )}
 
           <div>
-            <label className="block text-[11px] text-stone-500 mb-1.5">Email</label>
+            <label className="block text-sm font-medium text-stone-600 mb-2">Email</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-transparent border-b border-stone-300 focus:border-stone-900 py-2 text-sm text-stone-900 focus:outline-none transition"
+              disabled={isSubmitting || isPending}
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 transition disabled:opacity-50"
+              placeholder="you@example.com"
             />
           </div>
 
           <div>
-            <label className="block text-[11px] text-stone-500 mb-1.5">Password</label>
+            <label className="block text-sm font-medium text-stone-600 mb-2">Password</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-transparent border-b border-stone-300 focus:border-stone-900 py-2 text-sm text-stone-900 focus:outline-none transition"
+              disabled={isSubmitting || isPending}
+              className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 transition disabled:opacity-50"
+              placeholder="••••••••"
             />
           </div>
 
-          <label className="flex items-start gap-2.5 pt-2 cursor-pointer text-[11px] text-stone-500 leading-relaxed">
+          {/* 复选框区域：整个框（包括内边距）均可点击 */}
+          <label className="flex items-start gap-3 p-3 -mx-3 bg-stone-50/50 hover:bg-stone-100/80 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-stone-200">
             <input
               type="checkbox"
               checked={privacyChecked}
               onChange={(e) => setPrivacyChecked(e.target.checked)}
-              className="mt-0.5 accent-stone-900 rounded"
+              disabled={isSubmitting || isPending}
+              className="mt-0.5 w-5 h-5 accent-stone-900 rounded cursor-pointer disabled:opacity-50 shrink-0 pointer-events-none"
             />
-            <span>
+            <span className="text-xs text-stone-500 leading-relaxed select-none pointer-events-none">
               I understand the privacy note: The camera turns on only when I ask, and raw video is not stored.
             </span>
           </label>
 
           {errorMsg && (
-            <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-3 py-2">
+            <div className="text-xs text-rose-600 bg-rose-50 border border-rose-200 rounded-xl px-4 py-3">
               {errorMsg}
             </div>
           )}
 
-          <div className="pt-1">
+          <div className="pt-2">
+            {/* 主提交按钮：整行 w-full，并确保内部所有区域响应点击 */}
             <button
               type="submit"
-              className="px-7 py-2.5 rounded-full bg-stone-900 hover:bg-stone-800 text-white text-xs font-medium transition shadow-sm"
+              disabled={isSubmitting || isPending}
+              className="w-full py-3.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold transition shadow-md disabled:opacity-50 flex items-center justify-center cursor-pointer"
             >
-              {mode === "login" ? "Log in" : "Create and enter"}
+              <span className="pointer-events-none">
+                {isSubmitting || isPending ? "Processing..." : (mode === "login" ? "Log in" : "Create and enter")}
+              </span>
             </button>
           </div>
         </form>
 
-        <div className="mt-8 pt-4 border-t border-stone-100 text-xs text-stone-500">
-          {mode === "login" ? (
-            <span>
-              No profile yet?{" "}
-              <button
-                type="button"
-                onClick={goOtherMode}
-                className="text-stone-900 font-medium underline underline-offset-4"
-              >
-                Sign up
-              </button>
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={goOtherMode}
+            disabled={isSubmitting || isPending}
+            className="w-full py-3.5 rounded-xl border border-stone-200 text-stone-600 text-sm font-medium hover:bg-stone-50 hover:text-stone-900 transition-colors disabled:opacity-50 flex items-center justify-center cursor-pointer"
+          >
+            <span className="pointer-events-none">
+              {mode === "login" ? "No profile yet? Sign up" : "Already have a profile? Log in"}
             </span>
-          ) : (
-            <span>
-              Already have a profile?{" "}
-              <button
-                type="button"
-                onClick={goOtherMode}
-                className="text-stone-900 font-medium underline underline-offset-4"
-              >
-                Log in
-              </button>
-            </span>
-          )}
+          </button>
         </div>
       </div>
     </div>

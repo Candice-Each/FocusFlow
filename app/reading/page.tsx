@@ -35,6 +35,7 @@ import { PaginationFooter } from "@/components/PaginationFooter";
 import { BottomLeftSliders } from "@/components/BottomLeftSliders";
 import { BuyModal } from "@/components/modals/BuyModal";
 import { NotesModal } from "@/components/modals/NotesModal";
+
 export default function SingleBookReadingInterface() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const rowsContainerRef = useRef<HTMLDivElement | null>(null);
@@ -70,7 +71,10 @@ export default function SingleBookReadingInterface() {
   const [menuShowBookmark, setMenuShowBookmark] = useState(true);
   const [menuShowHighlight, setMenuShowHighlight] = useState(true);
   const [menuShowNotes, setMenuShowNotes] = useState(true);
+
+  // 控制左下角拉条的显示与隐藏
   const [showBottomLeftBar, setShowBottomLeftBar] = useState(true);
+
   const [gestureControl, setGestureControl] = useState(true);
   const [faceAssist, setFaceAssist] = useState(true);
   const [faceBehaviorEnabled, setFaceBehaviorEnabled] = useState(true);
@@ -127,6 +131,7 @@ export default function SingleBookReadingInterface() {
   const calibSamplesRef = useRef<CalibrationSamples>({ X: [], Y: [] });
   const collectingPointRef = useRef<CalibCollection | null>(null);
   const [readingSeconds, setReadingSeconds] = useState(0);
+
   useEffect(() => {
     const timer = setInterval(() => {
       if (!isOffScreenPaused && !showReturnConfirm && !isCalibrating) {
@@ -135,6 +140,7 @@ export default function SingleBookReadingInterface() {
     }, 1000);
     return () => clearInterval(timer);
   }, [isOffScreenPaused, showReturnConfirm, isCalibrating]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -153,6 +159,7 @@ export default function SingleBookReadingInterface() {
     }
     return () => window.clearTimeout(demoTimer);
   }, []);
+
   const isNight = bgTheme === "Night";
   const lineHeightPx = Math.max(30, Math.round(fontSize * lineSpacingRatio));
   const theme = buildThemeClasses(isNight, bgTheme, textColor);
@@ -161,6 +168,7 @@ export default function SingleBookReadingInterface() {
     (sizePx: number) => buildFontCss(fontFamily, sizePx),
     [fontFamily]
   );
+
   const stateRef = useRef<GazeTrackingState>(createGazeTrackingState());
   const faceBaselineRef = useRef<FaceBaseline | null>(null);
   useEffect(() => { faceBaselineRef.current = faceBaseline; }, [faceBaseline]);
@@ -180,6 +188,7 @@ export default function SingleBookReadingInterface() {
       window.removeEventListener("pointercancel", clearSliderDrag);
     };
   }, []);
+
   const prevRawTextRef = useRef(rawText);
   const { pages, pageIdx, setPageIdx, activeLineIdx, setActiveLineIdx, activeClauseId, setActiveClauseId } = usePagination({
     rawText, readingWidthPct, fontSize, fontFamily, getFontCssString, rowsContainerRef,
@@ -210,6 +219,7 @@ export default function SingleBookReadingInterface() {
       }
     },
   });
+
   const layoutRef = useRef<ReadingLayout>({ pages: [], pageIdx: 0 });
   useEffect(() => { layoutRef.current = { pages, pageIdx }; }, [pages, pageIdx]);
   const uiConfigRef = useRef<GazeTrackingConfig>({
@@ -227,6 +237,7 @@ export default function SingleBookReadingInterface() {
   }, [meshShowVideoBg, heatmapDecayMode, heatmapUseRawY, gestureControl, faceAssist,
     noCameraMode, isOffScreenPaused, showReturnConfirm, clauseMenuOpen, isNight,
     nextLineSlider, prevLineSlider, skipLinesSlider, lineHeightPx]);
+
   const { miniHeatmapCanvasRef, fullHeatmapCanvasRef, updateAndRenderHeatmaps, clearHeatmap } = useHeatmapRenderer(uiConfigRef);
   const { latestTelemetryRef } = useGazeTracking({
     noCameraMode, stateRef, weightsRef, uiConfigRef, layoutRef, faceBaselineRef,
@@ -239,6 +250,7 @@ export default function SingleBookReadingInterface() {
     uiInteractingRef,
     isDraggingSliderRef,
   });
+
   const {
     baseline: personalFaceBaseline,
     observation: faceObservation,
@@ -268,6 +280,7 @@ export default function SingleBookReadingInterface() {
     activeClauseId,
     demoMode: faceDemoMode,
   });
+
   useEffect(() => {
     if (!personalFaceBaseline) return;
     const timer = window.setTimeout(
@@ -282,6 +295,7 @@ export default function SingleBookReadingInterface() {
     );
     return () => window.clearTimeout(timer);
   }, [personalFaceBaseline]);
+
   useEffect(() => {
     let nextState = "Idle";
     if (!faceBehaviorEnabled || noCameraMode) nextState = "Face Support Off";
@@ -307,6 +321,7 @@ export default function SingleBookReadingInterface() {
     noCameraMode,
     readingDifficultySignal,
   ]);
+
   useEffect(() => {
     const row = pages[pageIdx]?.[activeLineIdx];
     if (!row || row.segments.length === 0) return;
@@ -316,10 +331,9 @@ export default function SingleBookReadingInterface() {
       setActiveClauseId(fallbackCid);
     }
   }, [pages, pageIdx, activeLineIdx, activeClauseId, setActiveClauseId]);
+
   const getSentenceTextById = useCallback((targetCid: number) => {
-    const segments = pages.flatMap((p) =>
-      p.flatMap((row) => row.segments)
-    );
+    const segments = pages.flatMap((p) => p.flatMap((row) => row.segments));
     const targetIndex = segments.findIndex((seg) => seg.clauseId === targetCid);
     if (targetIndex < 0) return "";
     const endsSentence = (text: string) => /[.!?。！？…][\"'”’)]*$/.test(text.trim());
@@ -338,16 +352,19 @@ export default function SingleBookReadingInterface() {
       .replace(/\s+/g, " ")
       .trim();
   }, [pages]);
+
   const currentLines = pages[pageIdx] ?? [];
   const getActiveSentenceText = useCallback(() => {
     const activeRow = currentLines[activeLineIdx];
     const seg = activeRow?.segments.find((s) => s.clauseId === activeClauseId) ?? activeRow?.segments[0];
     return seg ? seg.text.trim() : getSentenceTextById(activeClauseId);
   }, [currentLines, activeLineIdx, activeClauseId, getSentenceTextById]);
+
   const faceAssistanceSourceText =
     facePrompt?.kind === "understanding"
       ? getSentenceTextById(facePrompt.targetClauseId) || getActiveSentenceText()
       : getActiveSentenceText();
+
   const toggleTtsReading = useCallback((readSingleSentence = false) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       showToast("TTS Unavailable", "Web Speech synthesis is not supported in this browser");
@@ -380,6 +397,7 @@ export default function SingleBookReadingInterface() {
       setIsSpeaking(false);
     }
   }, [isSpeaking, getActiveSentenceText, currentLines, pageIdx, showToast]);
+
   const addBookmarkForActiveClause = useCallback(() => {
     const full = getActiveSentenceText() || "Selected sentence";
     const snippet = full.slice(0, 34) + (full.length > 34 ? "......" : "");
@@ -390,12 +408,14 @@ export default function SingleBookReadingInterface() {
     setClauseMenuOpen(false);
     showToast("Bookmark Saved", `Page ${pageIdx + 1} / Row ${activeLineIdx + 1}`);
   }, [getActiveSentenceText, activeClauseId, pageIdx, activeLineIdx, showToast]);
+
   const copyActiveClause = useCallback(() => {
     const txt = getActiveSentenceText();
     try { navigator.clipboard?.writeText(txt); } catch { }
     setClauseMenuOpen(false);
     showToast("Sentence Copied", txt.slice(0, 42) + (txt.length > 42 ? "..." : ""));
   }, [getActiveSentenceText, showToast]);
+
   const toggleHighlightActiveClause = useCallback(() => {
     setHighlightedClauses((prev) => {
       const next = new Set(prev);
@@ -410,6 +430,7 @@ export default function SingleBookReadingInterface() {
     });
     setClauseMenuOpen(false);
   }, [activeClauseId, showToast]);
+
   const toggleUnderlineActiveClause = useCallback(() => {
     setUnderlinedClauses((prev) => {
       const next = new Set(prev);
@@ -419,6 +440,7 @@ export default function SingleBookReadingInterface() {
     });
     setClauseMenuOpen(false);
   }, [activeClauseId, showToast]);
+
   const addActiveSentenceToNotes = useCallback(() => {
     const txt = getActiveSentenceText();
     if (txt) {
@@ -427,6 +449,7 @@ export default function SingleBookReadingInterface() {
     }
     setClauseMenuOpen(false);
   }, [getActiveSentenceText, pageIdx, showToast]);
+
   const handleFileUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -444,10 +467,12 @@ export default function SingleBookReadingInterface() {
     },
     [showToast]
   );
+
   const calibratePersonalFaceBaseline = useCallback(() => {
     requestBaselineCapture();
     setMultimodalTriggerState("Baseline Instructions");
   }, [requestBaselineCapture]);
+
   const beginPersonalFaceBaseline = useCallback(() => {
     const started = startBaselineCapture();
     if (started) {
@@ -458,6 +483,7 @@ export default function SingleBookReadingInterface() {
     }
     return started;
   }, [startBaselineCapture, showToast]);
+
   const startCalibration = useCallback(() => {
     calibSamplesRef.current = { X: [], Y: [] };
     collectingPointRef.current = null;
@@ -465,16 +491,13 @@ export default function SingleBookReadingInterface() {
     setCalibStep(0);
     setIsCalibrating(true);
   }, []);
+
   const handleCalibPointClick = useCallback(
     (tx: number, ty: number) => {
       if (collectingPointRef.current && collectingPointRef.current.remaining > 0) return;
       setCalibSampleProgress(0);
       collectingPointRef.current = {
-        targetX: tx,
-        targetY: ty,
-        settle: 3,
-        remaining: 20,
-        total: 20,
+        targetX: tx, targetY: ty, settle: 3, remaining: 20, total: 20,
       };
       const checkTimer = setInterval(() => {
         if (!collectingPointRef.current) {
@@ -513,6 +536,7 @@ export default function SingleBookReadingInterface() {
     },
     [calibStep, pages, pageIdx, clearHeatmap, setActiveLineIdx, setActiveClauseId, showToast]
   );
+
   const handleSelectChapter = useCallback(
     (idx: number) => {
       setCustomTitle(null);
@@ -523,6 +547,7 @@ export default function SingleBookReadingInterface() {
     },
     [showToast]
   );
+
   const handleSelectBookmark = useCallback(
     (bm: Bookmark) => {
       const safeP = Math.max(0, Math.min(bm.page, pages.length - 1));
@@ -540,6 +565,7 @@ export default function SingleBookReadingInterface() {
     },
     [pages, showToast]
   );
+
   const handlePagePrev = useCallback(() => {
     const prevP = Math.max(0, pageIdx - 1);
     const firstCid = pages[prevP]?.[0]?.segments?.[0]?.clauseId ?? 0;
@@ -552,6 +578,7 @@ export default function SingleBookReadingInterface() {
     stateRef.current.reachedRightZone = false;
     stateRef.current.maxLineX = 0;
   }, [pageIdx, pages, setPageIdx, setActiveLineIdx, setActiveClauseId]);
+
   const handlePageNext = useCallback(() => {
     const nextP = Math.min(pages.length - 1, pageIdx + 1);
     const firstCid = pages[nextP]?.[0]?.segments?.[0]?.clauseId ?? 0;
@@ -564,7 +591,7 @@ export default function SingleBookReadingInterface() {
     stateRef.current.reachedRightZone = false;
     stateRef.current.maxLineX = 0;
   }, [pageIdx, pages, setPageIdx, setActiveLineIdx, setActiveClauseId]);
-  // Hand gestures and upper-body posture detection.
+
   const [motionEnabled, setMotionEnabled] = useState(false);
   const {
     status: handStatus,
@@ -578,23 +605,16 @@ export default function SingleBookReadingInterface() {
     onPrev: handlePagePrev,
     onNext: handlePageNext,
   });
+
   const voiceSnapshotRef = useRef<ReaderSnapshot | null>(null);
   useEffect(() => {
     voiceSnapshotRef.current = {
-      pageIdx,
-      pageCount: pages.length,
-      lineIdx: activeLineIdx,
-      lineCount: currentLines.length,
-      hasActiveSentence: Boolean(
-        currentLines[activeLineIdx]?.segments?.some((s) => s.clauseId === activeClauseId)
-      ),
-      isSpeaking,
-      isDictating: voiceMode === "Notes",
+      pageIdx, pageCount: pages.length, lineIdx: activeLineIdx, lineCount: currentLines.length,
+      hasActiveSentence: Boolean(currentLines[activeLineIdx]?.segments?.some((s) => s.clauseId === activeClauseId)),
+      isSpeaking, isDictating: voiceMode === "Notes",
     };
-  }, [
-    pageIdx, pages.length, activeLineIdx, currentLines, activeClauseId,
-    isSpeaking, voiceMode,
-  ]);
+  }, [pageIdx, pages.length, activeLineIdx, currentLines, activeClauseId, isSpeaking, voiceMode]);
+
   const getVoiceSnapshot = useCallback(
     (): ReaderSnapshot =>
       voiceSnapshotRef.current ?? {
@@ -604,6 +624,7 @@ export default function SingleBookReadingInterface() {
       },
     [pageIdx, pages.length, activeLineIdx, currentLines.length, isSpeaking, voiceMode]
   );
+
   const moveLineBy = useCallback(
     (delta: number) => {
       const target = Math.max(0, Math.min(currentLines.length - 1, activeLineIdx + delta));
@@ -619,173 +640,63 @@ export default function SingleBookReadingInterface() {
     },
     [currentLines, activeLineIdx, activeClauseId]
   );
-  const adjustFontSize = useCallback(
-    (delta: number) => {
-      setFontSize((prev) => Math.max(10, Math.min(40, prev + delta)));
-    },
-    []
-  );
-  /** Voice action dispatch table. */
+
+  const adjustFontSize = useCallback((delta: number) => {
+    setFontSize((prev) => Math.max(10, Math.min(40, prev + delta)));
+  }, []);
+
   const handleVoiceAction = useCallback(
     (action: VoiceAction) => {
       switch (action.kind) {
         case "COMMAND": {
           const { id, count, matched } = action.command;
           switch (id) {
-            case "NEXT_LINE":
-              moveLineBy(1);
-              setMultimodalTriggerState("Voice: Next Line");
-              break;
-            case "PREV_LINE":
-              moveLineBy(-1);
-              setMultimodalTriggerState("Voice: Previous Line");
-              break;
-            case "SKIP_LINES_FORWARD":
-              moveLineBy(count ?? 1);
-              setMultimodalTriggerState(`Voice: Skip ${count ?? 1} Lines`);
-              break;
-            case "SKIP_LINES_BACK":
-              moveLineBy(-(count ?? 1));
-              setMultimodalTriggerState(`Voice: Back ${count ?? 1} Lines`);
-              break;
-            case "NEXT_PAGE":
-              handlePageNext();
-              setMultimodalTriggerState("Voice: Next Page");
-              break;
-            case "PREV_PAGE":
-              handlePagePrev();
-              setMultimodalTriggerState("Voice: Previous Page");
-              break;
+            case "NEXT_LINE": moveLineBy(1); setMultimodalTriggerState("Voice: Next Line"); break;
+            case "PREV_LINE": moveLineBy(-1); setMultimodalTriggerState("Voice: Previous Line"); break;
+            case "SKIP_LINES_FORWARD": moveLineBy(count ?? 1); setMultimodalTriggerState(`Voice: Skip ${count ?? 1} Lines`); break;
+            case "SKIP_LINES_BACK": moveLineBy(-(count ?? 1)); setMultimodalTriggerState(`Voice: Back ${count ?? 1} Lines`); break;
+            case "NEXT_PAGE": handlePageNext(); setMultimodalTriggerState("Voice: Next Page"); break;
+            case "PREV_PAGE": handlePagePrev(); setMultimodalTriggerState("Voice: Previous Page"); break;
             case "FIRST_PAGE":
-              setPageIdx(0);
-              setActiveLineIdx(0);
-              setActiveClauseId(pages[0]?.[0]?.segments?.[0]?.clauseId ?? 0);
-              setMultimodalTriggerState("Voice: First Page");
-              break;
+              setPageIdx(0); setActiveLineIdx(0); setActiveClauseId(pages[0]?.[0]?.segments?.[0]?.clauseId ?? 0);
+              setMultimodalTriggerState("Voice: First Page"); break;
             case "LAST_PAGE": {
               const last = Math.max(0, pages.length - 1);
-              setPageIdx(last);
-              setActiveLineIdx(0);
-              setActiveClauseId(pages[last]?.[0]?.segments?.[0]?.clauseId ?? 0);
-              setMultimodalTriggerState("Voice: Last Page");
-              break;
+              setPageIdx(last); setActiveLineIdx(0); setActiveClauseId(pages[last]?.[0]?.segments?.[0]?.clauseId ?? 0);
+              setMultimodalTriggerState("Voice: Last Page"); break;
             }
-            case "NEXT_CHAPTER":
-              handleSelectChapter((chapterIdx + 1) % BOOK_CHAPTERS.length);
-              setMultimodalTriggerState("Voice: Next Chapter");
-              break;
-            case "PREV_CHAPTER":
-              handleSelectChapter(
-                (chapterIdx - 1 + BOOK_CHAPTERS.length) % BOOK_CHAPTERS.length
-              );
-              setMultimodalTriggerState("Voice: Previous Chapter");
-              break;
-            case "OPEN_MENU":
-              setClauseMenuOpen(true);
-              setMultimodalTriggerState("Voice: Menu Open");
-              break;
-            case "CLOSE_MENU":
-              setClauseMenuOpen(false);
-              setMultimodalTriggerState("Voice: Menu Closed");
-              break;
-            case "READ_LINE":
-              if (!isSpeaking) toggleTtsReading(true);
-              setMultimodalTriggerState("Voice: Read Line");
-              break;
-            case "READ_PARAGRAPH":
-              if (!isSpeaking) toggleTtsReading(false);
-              setMultimodalTriggerState("Voice: Read Page");
-              break;
-            case "STOP_READING":
-              if (isSpeaking) toggleTtsReading();
-              setMultimodalTriggerState("Voice: Reading Stopped");
-              break;
-            case "FONT_BIGGER":
-              adjustFontSize(2);
-              setMultimodalTriggerState("Voice: Font Bigger");
-              break;
-            case "FONT_SMALLER":
-              adjustFontSize(-2);
-              setMultimodalTriggerState("Voice: Font Smaller");
-              break;
-            case "BOOKMARK_LINE":
-              addBookmarkForActiveClause();
-              setMultimodalTriggerState("Voice: Bookmark Saved");
-              break;
-            case "OPEN_NOTES":
-              setNotesModalOpen(true);
-              setMultimodalTriggerState("Voice: Notes Open");
-              break;
-            case "HIGHLIGHT_SENTENCE":
-              toggleHighlightActiveClause();
-              setMultimodalTriggerState("Voice: Highlight");
-              break;
-            case "UNDERLINE_SENTENCE":
-              toggleUnderlineActiveClause();
-              setMultimodalTriggerState("Voice: Underline");
-              break;
-            case "COPY_SENTENCE":
-              copyActiveClause();
-              setMultimodalTriggerState("Voice: Copied");
-              break;
-            case "PAUSE_READING":
-              setIsOffScreenPaused(true);
-              setShowReturnConfirm(true);
-              setMultimodalTriggerState("Voice: Session Paused");
-              break;
-            case "RESUME_READING":
-              setIsOffScreenPaused(false);
-              setShowReturnConfirm(false);
-              setMultimodalTriggerState("Voice: Session Resumed");
-              break;
-            case "START_DICTATION":
-              setVoiceMode("Notes");
-              break;
-            case "STOP_DICTATION":
-              setVoiceMode("Read");
-              break;
-            case "CANCEL":
-              setClauseMenuOpen(false);
-              showToast("Cancelled", "Returned to the page");
-              break;
-            case "HELP":
-              showToast(
-                "Voice Commands",
-                'Try: "hey focus next line", "open menu", "read this line", "bigger font"'
-              );
-              break;
-            default: {
-              const unreachable: never = id;
-              void unreachable;
-            }
+            case "NEXT_CHAPTER": handleSelectChapter((chapterIdx + 1) % BOOK_CHAPTERS.length); setMultimodalTriggerState("Voice: Next Chapter"); break;
+            case "PREV_CHAPTER": handleSelectChapter((chapterIdx - 1 + BOOK_CHAPTERS.length) % BOOK_CHAPTERS.length); setMultimodalTriggerState("Voice: Previous Chapter"); break;
+            case "OPEN_MENU": setClauseMenuOpen(true); setMultimodalTriggerState("Voice: Menu Open"); break;
+            case "CLOSE_MENU": setClauseMenuOpen(false); setMultimodalTriggerState("Voice: Menu Closed"); break;
+            case "READ_LINE": if (!isSpeaking) toggleTtsReading(true); setMultimodalTriggerState("Voice: Read Line"); break;
+            case "READ_PARAGRAPH": if (!isSpeaking) toggleTtsReading(false); setMultimodalTriggerState("Voice: Read Page"); break;
+            case "STOP_READING": if (isSpeaking) toggleTtsReading(); setMultimodalTriggerState("Voice: Reading Stopped"); break;
+            case "FONT_BIGGER": adjustFontSize(2); setMultimodalTriggerState("Voice: Font Bigger"); break;
+            case "FONT_SMALLER": adjustFontSize(-2); setMultimodalTriggerState("Voice: Font Smaller"); break;
+            case "BOOKMARK_LINE": addBookmarkForActiveClause(); setMultimodalTriggerState("Voice: Bookmark Saved"); break;
+            case "OPEN_NOTES": setNotesModalOpen(true); setMultimodalTriggerState("Voice: Notes Open"); break;
+            case "HIGHLIGHT_SENTENCE": toggleHighlightActiveClause(); setMultimodalTriggerState("Voice: Highlight"); break;
+            case "UNDERLINE_SENTENCE": toggleUnderlineActiveClause(); setMultimodalTriggerState("Voice: Underline"); break;
+            case "COPY_SENTENCE": copyActiveClause(); setMultimodalTriggerState("Voice: Copied"); break;
+            case "PAUSE_READING": setIsOffScreenPaused(true); setShowReturnConfirm(true); setMultimodalTriggerState("Voice: Session Paused"); break;
+            case "RESUME_READING": setIsOffScreenPaused(false); setShowReturnConfirm(false); setMultimodalTriggerState("Voice: Session Resumed"); break;
+            case "START_DICTATION": setVoiceMode("Notes"); break;
+            case "STOP_DICTATION": setVoiceMode("Read"); break;
+            case "CANCEL": setClauseMenuOpen(false); showToast("Cancelled", "Returned to the page"); break;
+            case "HELP": showToast("Voice Commands", 'Try: "hey focus next line", "open menu", "read this line", "bigger font"'); break;
+            default: { const unreachable: never = id; void unreachable; }
           }
           setVoiceLog(`✓ ${matched}`);
           playSubtleEarcon(659.25, 140);
           break;
         }
-        case "DICTATION_START":
-          setVoiceLog("Dictation on – speak, then say \"stop dictation\"");
-          playSubtleEarcon(659.25, 140);
-          break;
-        case "DICTATION_APPEND":
-          setNotesList((prev) => [`[Voice Note] ${action.text}`, ...prev]);
-          setMultimodalTriggerState("Voice Note Saved");
-          setVoiceLog(`✎ ${action.text}`);
-          playSubtleEarcon(659.25, 140);
-          break;
-        case "DICTATION_END":
-          showToast("Voice Note Saved", action.text.slice(0, 60));
-          setVoiceLog("Dictation finished");
-          playSubtleEarcon(659.25, 140);
-          break;
-        case "STATUS":
-          setVoiceMode((prev) => (prev === action.mode ? prev : action.mode));
-          break;
-        case "PROMPT":
-          if (action.severity === "error") playSubtleEarcon(220, 180);
-          break;
-        case "PREVIEW":
-          break;
+        case "DICTATION_START": setVoiceLog("Dictation on – speak, then say \"stop dictation\""); playSubtleEarcon(659.25, 140); break;
+        case "DICTATION_APPEND": setNotesList((prev) => [`[Voice Note] ${action.text}`, ...prev]); setMultimodalTriggerState("Voice Note Saved"); setVoiceLog(`✎ ${action.text}`); playSubtleEarcon(659.25, 140); break;
+        case "DICTATION_END": showToast("Voice Note Saved", action.text.slice(0, 60)); setVoiceLog("Dictation finished"); playSubtleEarcon(659.25, 140); break;
+        case "STATUS": setVoiceMode((prev) => (prev === action.mode ? prev : action.mode)); break;
+        case "PROMPT": if (action.severity === "error") playSubtleEarcon(220, 180); break;
+        case "PREVIEW": break;
       }
     },
     [
@@ -795,45 +706,41 @@ export default function SingleBookReadingInterface() {
       showToast, setPageIdx, setActiveLineIdx, setActiveClauseId, setNotesModalOpen,
     ]
   );
+
   const { micActive, voiceError, toggleMicrophone, listenOnce } = useVoiceAssistant({
     mode: voiceMode,
     getSnapshot: getVoiceSnapshot,
     onAction: handleVoiceAction,
     onLog: setVoiceLog,
   });
-  const onSentenceClick = useCallback(
-    (lineIdx: number, clauseId: number, ratio: number) => {
-      stateRef.current.currentLine = lineIdx;
-      stateRef.current.currentClauseId = clauseId;
-      stateRef.current.lineEnterTime = performance.now();
-      stateRef.current.reachedRightZone = false;
-      stateRef.current.maxLineX = 0;
-      setActiveLineIdx(lineIdx);
-      setActiveClauseId(clauseId);
-      setClauseClickRatio(ratio);
-      setClauseMenuOpen(false);
-    },
-    [setActiveLineIdx, setActiveClauseId]
-  );
-  const onSentenceDoubleClick = useCallback(
-    (lineIdx: number, clauseId: number, ratio: number) => {
-      stateRef.current.currentLine = lineIdx;
-      stateRef.current.currentClauseId = clauseId;
-      setActiveLineIdx(lineIdx);
-      setActiveClauseId(clauseId);
-      setClauseClickRatio(ratio);
-      setClauseMenuOpen((v) => !v);
-    },
-    [setActiveLineIdx, setActiveClauseId]
-  );
-  const onPointerMoveGaze = useCallback(
-    (e: React.PointerEvent) => {
-      if (noCameraMode || !isCalibrated) {
-        setGazePoint((prev) => ({ ...prev, x: e.clientX, y: e.clientY }));
-      }
-    },
-    [noCameraMode, isCalibrated]
-  );
+
+  const onSentenceClick = useCallback((lineIdx: number, clauseId: number, ratio: number) => {
+    stateRef.current.currentLine = lineIdx;
+    stateRef.current.currentClauseId = clauseId;
+    stateRef.current.lineEnterTime = performance.now();
+    stateRef.current.reachedRightZone = false;
+    stateRef.current.maxLineX = 0;
+    setActiveLineIdx(lineIdx);
+    setActiveClauseId(clauseId);
+    setClauseClickRatio(ratio);
+    setClauseMenuOpen(false);
+  }, [setActiveLineIdx, setActiveClauseId]);
+
+  const onSentenceDoubleClick = useCallback((lineIdx: number, clauseId: number, ratio: number) => {
+    stateRef.current.currentLine = lineIdx;
+    stateRef.current.currentClauseId = clauseId;
+    setActiveLineIdx(lineIdx);
+    setActiveClauseId(clauseId);
+    setClauseClickRatio(ratio);
+    setClauseMenuOpen((v) => !v);
+  }, [setActiveLineIdx, setActiveClauseId]);
+
+  const onPointerMoveGaze = useCallback((e: React.PointerEvent) => {
+    if (noCameraMode || !isCalibrated) {
+      setGazePoint((prev) => ({ ...prev, x: e.clientX, y: e.clientY }));
+    }
+  }, [noCameraMode, isCalibrated]);
+
   const unifiedSurfaceClass = theme.surface;
   const hasPostureWarning = motionEnabled && postureBaseline !== null &&
     (postureStatus.includes("tilted") || postureStatus.includes("slouch") ||
@@ -844,321 +751,162 @@ export default function SingleBookReadingInterface() {
   const dimBackdropActive = leftSidebarOpen || rightSidebarOpen;
   const showGuideBanner =
     !isCalibrated && !isCalibrating && !showReturnConfirm && !statusToast && !dismissGuideBanner;
+
   return (
-    <div
-      className={`min-h-screen w-full flex flex-col justify-between select-none transition-colors duration-300 relative overflow-x-hidden ${theme.pageBg} ${theme.textTone}`}
-    >
+    <div className={`min-h-screen w-full flex flex-col justify-between select-none transition-colors duration-300 relative overflow-x-hidden ${theme.pageBg} ${theme.textTone}`}>
       {hasPostureWarning && (
         <>
-          <div
-            aria-hidden="true"
-            className="pointer-events-none fixed inset-0 z-40"
-            style={{ boxShadow: "inset 0 0 85px 22px rgba(220, 38, 38, 0.28)" }}
-          />
-          <div
-            role="alert"
-            className="pointer-events-none fixed top-16 left-1/2 -translate-x-1/2 z-50 rounded-full border border-red-300 bg-red-50/95 px-5 py-2 text-sm font-medium text-red-700 shadow-md"
-          >
+          <div aria-hidden="true" className="pointer-events-none fixed inset-0 z-40" style={{ boxShadow: "inset 0 0 85px 22px rgba(220, 38, 38, 0.28)" }} />
+          <div role="alert" className="pointer-events-none fixed top-16 left-1/2 -translate-x-1/2 z-50 rounded-full border border-red-300 bg-red-50/95 px-5 py-2 text-sm font-medium text-red-700 shadow-md">
             ⚠ {postureStatus}
           </div>
         </>
       )}
+
       {/* Gesture + Posture Control Panel */}
-<div
-        className="
-          fixed right-3 bottom-20 z-40
-          w-64 rounded-xl border
-          border-stone-300
-          bg-white/95 text-stone-900
-          shadow-lg p-3 text-xs
-          space-y-2 select-text
-        "
-      >
+      <div className="fixed right-3 bottom-20 z-40 w-64 rounded-xl border border-stone-300 bg-white/95 text-stone-900 shadow-lg p-3 text-xs space-y-2 select-text">
         <div className="flex items-center justify-between gap-2">
           <strong>Hand + Posture</strong>
-          <button
-            type="button"
-            className="
-              rounded bg-stone-800
-              text-white px-2 py-1
-            "
-            onClick={() =>
-              setMotionEnabled((value) => !value)
-            }
-          >
+          <button type="button" className="rounded bg-stone-800 text-white px-2 py-1" onClick={() => setMotionEnabled((value) => !value)}>
             {motionEnabled ? "Stop" : "Start"}
           </button>
         </div>
-        <div className="break-words">
-          Hand: {handStatus}
-        </div>
-        <div
-          role="status"
-          className={hasPostureWarning ? "font-bold text-red-700" : ""}
-        >
-          Posture: {postureStatus}
-        </div>
+        <div className="break-words">Hand: {handStatus}</div>
+        <div role="status" className={hasPostureWarning ? "font-bold text-red-700" : ""}>Posture: {postureStatus}</div>
         <div className="text-[10px] text-stone-500 break-words">{postureDebug}</div>
-        <button
-          type="button"
-          className="
-            rounded border border-stone-400
-            px-2 py-1 disabled:opacity-40
-          "
-          disabled={!motionEnabled || noCameraMode}
-          onClick={calibratePosture}
-        >
-          {postureBaseline
-            ? "Recalibrate upright posture"
-            : "Calibrate upright posture"}
+        <button type="button" className="rounded border border-stone-400 px-2 py-1 disabled:opacity-40" disabled={!motionEnabled || noCameraMode} onClick={calibratePosture}>
+          {postureBaseline ? "Recalibrate upright posture" : "Calibrate upright posture"}
         </button>
         <p className="text-[10px] text-stone-600">
-          Open palm in the right zone: next page;
-          left zone: previous page. Hold for 0.4s.
-          Lower hand between turns.
-          Posture alerts are approximate.
+          Open palm in the right zone: next page; left zone: previous page. Hold for 0.4s. Posture alerts are approximate.
         </p>
       </div>
+
       <canvas
         ref={fullHeatmapCanvasRef}
         width={240}
         height={135}
-        className={`pointer-events-none fixed inset-0 w-full h-full z-30 transition-opacity duration-200 ${showPageHeatmap && isCalibrated && !isCalibrating ? "opacity-80" : "opacity-0"
-          }`}
+        className={`pointer-events-none fixed inset-0 w-full h-full z-30 transition-opacity duration-200 ${showPageHeatmap && isCalibrated && !isCalibrating ? "opacity-80" : "opacity-0"}`}
       />
+
       <MonitorWindows
-        winVideo={winVideo}
-        setWinVideo={setWinVideo}
-        winMesh={winMesh}
-        setWinMesh={setWinMesh}
-        winHeatmap={winHeatmap}
-        setWinHeatmap={setWinHeatmap}
-        isNight={isNight}
-        videoRef={videoRef}
-        meshCanvasRef={meshCanvasRef}
-        miniHeatmapCanvasRef={miniHeatmapCanvasRef}
-        cameraStatus={cameraStatus}
-        fps={fps}
-        mouthScore={mouthScore}
-        noCameraMode={noCameraMode}
-        meshShowVideoBg={meshShowVideoBg}
-        setMeshShowVideoBg={setMeshShowVideoBg}
-        isCalibrated={isCalibrated}
-        showPageHeatmap={showPageHeatmap}
-        setShowPageHeatmap={setShowPageHeatmap}
-        heatmapDecayMode={heatmapDecayMode}
-        setHeatmapDecayMode={setHeatmapDecayMode}
-        heatmapUseRawY={heatmapUseRawY}
-        setHeatmapUseRawY={setHeatmapUseRawY}
-        onClearHeatmap={clearHeatmap}
-        unifiedSubtleBoxClass={unifiedSubtleBoxClass}
+        winVideo={winVideo} setWinVideo={setWinVideo}
+        winMesh={winMesh} setWinMesh={setWinMesh}
+        winHeatmap={winHeatmap} setWinHeatmap={setWinHeatmap}
+        isNight={isNight} videoRef={videoRef} meshCanvasRef={meshCanvasRef} miniHeatmapCanvasRef={miniHeatmapCanvasRef}
+        cameraStatus={cameraStatus} fps={fps} mouthScore={mouthScore}
+        noCameraMode={noCameraMode} meshShowVideoBg={meshShowVideoBg} setMeshShowVideoBg={setMeshShowVideoBg}
+        isCalibrated={isCalibrated} showPageHeatmap={showPageHeatmap} setShowPageHeatmap={setShowPageHeatmap}
+        heatmapDecayMode={heatmapDecayMode} setHeatmapDecayMode={setHeatmapDecayMode}
+        heatmapUseRawY={heatmapUseRawY} setHeatmapUseRawY={setHeatmapUseRawY}
+        onClearHeatmap={clearHeatmap} unifiedSubtleBoxClass={unifiedSubtleBoxClass}
       />
+
       <TopBar
-        leftSidebarOpen={leftSidebarOpen}
-        setLeftSidebarOpen={setLeftSidebarOpen}
-        onBackToShelf={backToShelfVisible ? () => router.push("/shelf") : undefined}
-        rightSidebarOpen={rightSidebarOpen}
-        setRightSidebarOpen={setRightSidebarOpen}
-        readingStats={readingStats}
-        readingSeconds={readingSeconds}
-        isOffScreenPaused={isOffScreenPaused}
-        clauseMenuOpen={clauseMenuOpen}
-        isCalibrated={isCalibrated}
-        noCameraMode={noCameraMode}
-        modelReady={modelReady}
-        startCalibration={startCalibration}
-        isPurchased={isPurchased}
-        setBuyModalOpen={setBuyModalOpen}
-        isSpeaking={isSpeaking}
-        toggleTtsReading={toggleTtsReading}
-        setNotesModalOpen={setNotesModalOpen}
-        micActive={micActive}
-        toggleMicrophone={toggleMicrophone}
-        unifiedSurfaceClass={unifiedSurfaceClass}
-        unifiedSubtleBoxClass={unifiedSubtleBoxClass}
+        leftSidebarOpen={leftSidebarOpen} setLeftSidebarOpen={setLeftSidebarOpen}
+        onBackToHome={() => router.push("/")} // 修复：将返回逻辑改为跳回封面主页
+        rightSidebarOpen={rightSidebarOpen} setRightSidebarOpen={setRightSidebarOpen}
+        readingStats={readingStats} readingSeconds={readingSeconds} isOffScreenPaused={isOffScreenPaused}
+        clauseMenuOpen={clauseMenuOpen} isCalibrated={isCalibrated} noCameraMode={noCameraMode}
+        modelReady={modelReady} startCalibration={startCalibration}
+        isPurchased={isPurchased} setBuyModalOpen={setBuyModalOpen}
+        isSpeaking={isSpeaking} toggleTtsReading={toggleTtsReading} setNotesModalOpen={setNotesModalOpen}
+        micActive={micActive} toggleMicrophone={toggleMicrophone}
+        unifiedSurfaceClass={unifiedSurfaceClass} unifiedSubtleBoxClass={unifiedSubtleBoxClass}
         formatTime={formatTime}
         onPointerEnter={() => { uiInteractingRef.current = true; }}
         onPointerLeave={() => { if (!isDraggingSliderRef.current) uiInteractingRef.current = false; }}
       />
+
       {dimBackdropActive && (
-        <div
-          onClick={() => { setLeftSidebarOpen(false); setRightSidebarOpen(false); }}
-          className="fixed inset-0 bg-black/25 z-20 transition-opacity"
-        />
+        <div onClick={() => { setLeftSidebarOpen(false); setRightSidebarOpen(false); }} className="fixed inset-0 bg-black/25 z-20 transition-opacity" />
       )}
+
       <LeftSidebar
-        open={leftSidebarOpen}
-        chapters={BOOK_CHAPTERS}
-        chapterIdx={chapterIdx}
-        customTitle={customTitle}
-        onSelectChapter={handleSelectChapter}
-        bookmarks={bookmarks}
-        onSelectBookmark={handleSelectBookmark}
-        unifiedSurfaceClass={unifiedSurfaceClass}
-        isNight={isNight}
+        open={leftSidebarOpen} chapters={BOOK_CHAPTERS} chapterIdx={chapterIdx} customTitle={customTitle}
+        onSelectChapter={handleSelectChapter} bookmarks={bookmarks} onSelectBookmark={handleSelectBookmark}
+        unifiedSurfaceClass={unifiedSurfaceClass} isNight={isNight}
         onPointerEnter={() => { uiInteractingRef.current = true; }}
         onPointerLeave={() => { if (!isDraggingSliderRef.current) uiInteractingRef.current = false; }}
       />
+
       <BottomLeftSliders
-        visible={showBottomLeftBar}
-        expanded={bottomLeftExpanded}
-        setExpanded={setBottomLeftExpanded}
-        nextLineSlider={nextLineSlider}
-        setNextLineSlider={setNextLineSlider}
-        prevLineSlider={prevLineSlider}
-        setPrevLineSlider={setPrevLineSlider}
-        skipLinesSlider={skipLinesSlider}
-        setSkipLinesSlider={setSkipLinesSlider}
+        visible={showBottomLeftBar} expanded={bottomLeftExpanded} setExpanded={setBottomLeftExpanded}
+        nextLineSlider={nextLineSlider} setNextLineSlider={setNextLineSlider}
+        prevLineSlider={prevLineSlider} setPrevLineSlider={setPrevLineSlider}
+        skipLinesSlider={skipLinesSlider} setSkipLinesSlider={setSkipLinesSlider}
         isNight={isNight}
         onPointerEnter={() => { uiInteractingRef.current = true; }}
         onPointerLeave={() => { if (!isDraggingSliderRef.current) uiInteractingRef.current = false; }}
-        onSliderPointerDown={() => {
-          isDraggingSliderRef.current = true;
-          uiInteractingRef.current = true;
-        }}
+        onSliderPointerDown={() => { isDraggingSliderRef.current = true; uiInteractingRef.current = true; }}
       />
+
       <RightSidebar
-        open={rightSidebarOpen}
-        readingStats={readingStats}
-        readingSeconds={readingSeconds}
-        formatTime={formatTime}
-        trackingQuality={trackingQuality}
-        cameraStatus={cameraStatus}
-        fps={fps}
-        continuousFaceState={continuousFaceState}
-        multimodalTriggerState={multimodalTriggerState}
-        faceBaseline={faceBaseline}
-        showGazeCursor={showGazeCursor}
-        setShowGazeCursor={setShowGazeCursor}
-        winVideo={winVideo}
-        setWinVideo={setWinVideo}
-        winMesh={winMesh}
-        setWinMesh={setWinMesh}
-        showPageHeatmap={showPageHeatmap}
-        setShowPageHeatmap={setShowPageHeatmap}
-        setWinHeatmap={setWinHeatmap}
-        faceAssist={faceAssist}
-        setFaceAssist={setFaceAssist}
-        faceBehaviorEnabled={faceBehaviorEnabled}
-        setFaceBehaviorEnabled={setFaceBehaviorEnabled}
-        faceAnalysisPhase={faceObservation.phase}
-        faceCandidate={faceObservation.cognitiveStrainCandidate}
+        open={rightSidebarOpen} readingStats={readingStats} readingSeconds={readingSeconds} formatTime={formatTime}
+        trackingQuality={trackingQuality} cameraStatus={cameraStatus} fps={fps}
+        continuousFaceState={continuousFaceState} multimodalTriggerState={multimodalTriggerState}
+        faceBaseline={faceBaseline} showGazeCursor={showGazeCursor} setShowGazeCursor={setShowGazeCursor}
+        winVideo={winVideo} setWinVideo={setWinVideo} winMesh={winMesh} setWinMesh={setWinMesh}
+        showPageHeatmap={showPageHeatmap} setShowPageHeatmap={setShowPageHeatmap} setWinHeatmap={setWinHeatmap}
+        faceAssist={faceAssist} setFaceAssist={setFaceAssist}
+        faceBehaviorEnabled={faceBehaviorEnabled} setFaceBehaviorEnabled={setFaceBehaviorEnabled}
+        faceAnalysisPhase={faceObservation.phase} faceCandidate={faceObservation.cognitiveStrainCandidate}
         readingDifficultySignal={readingDifficultySignal}
-        faceBaselineCaptureStatus={faceBaselineCapture.status}
-        faceBaselineCaptureProgress={faceBaselineCapture.progress}
-        noCameraMode={noCameraMode}
-        setNoCameraMode={setNoCameraMode}
-        modelReady={modelReady}
-        startCalibration={startCalibration}
-        isCalibrated={isCalibrated}
+        faceBaselineCaptureStatus={faceBaselineCapture.status} faceBaselineCaptureProgress={faceBaselineCapture.progress}
+        noCameraMode={noCameraMode} setNoCameraMode={setNoCameraMode}
+        modelReady={modelReady} startCalibration={startCalibration} isCalibrated={isCalibrated}
         calibratePersonalFaceBaseline={calibratePersonalFaceBaseline}
-        fontFamily={fontFamily}
-        setFontFamily={setFontFamily}
-        bgTheme={bgTheme}
-        setBgTheme={setBgTheme}
-        textColor={textColor}
-        setTextColor={setTextColor}
-        fontSize={fontSize}
-        setFontSize={setFontSize}
-        readingWidthPct={readingWidthPct}
-        setReadingWidthPct={setReadingWidthPct}
-        lineSpacingRatio={lineSpacingRatio}
-        setLineSpacingRatio={setLineSpacingRatio}
-        showRowMeta={showRowMeta}
-        setShowRowMeta={setShowRowMeta}
-        menuShowBookmark={menuShowBookmark}
-        setMenuShowBookmark={setMenuShowBookmark}
-        menuShowHighlight={menuShowHighlight}
-        setMenuShowHighlight={setMenuShowHighlight}
-        menuShowNotes={menuShowNotes}
-        setMenuShowNotes={setMenuShowNotes}
-        showBottomLeftBar={showBottomLeftBar}
-        setShowBottomLeftBar={setShowBottomLeftBar}
-        gestureControl={gestureControl}
-        setGestureControl={setGestureControl}
-        showReticle={showReticle}
-        setShowReticle={setShowReticle}
-        bgBlur={bgBlur}
-        setBgBlur={setBgBlur}
-        clauseMenuOpen={clauseMenuOpen}
-        gestureBadgeText={gestureBadgeText}
-        mouthScore={mouthScore}
-        voiceError={voiceError}
-        toggleMicrophone={toggleMicrophone}
-        listenOnce={listenOnce}
-        micActive={micActive}
-        voiceMode={voiceMode}
-        setVoiceMode={setVoiceMode}
-        voiceLog={voiceLog}
-        unifiedSurfaceClass={unifiedSurfaceClass}
-        unifiedSubtleBoxClass={unifiedSubtleBoxClass}
+        fontFamily={fontFamily} setFontFamily={setFontFamily} bgTheme={bgTheme} setBgTheme={setBgTheme}
+        textColor={textColor} setTextColor={setTextColor} fontSize={fontSize} setFontSize={setFontSize}
+        readingWidthPct={readingWidthPct} setReadingWidthPct={setReadingWidthPct}
+        lineSpacingRatio={lineSpacingRatio} setLineSpacingRatio={setLineSpacingRatio}
+        showRowMeta={showRowMeta} setShowRowMeta={setShowRowMeta}
+        menuShowBookmark={menuShowBookmark} setMenuShowBookmark={setMenuShowBookmark}
+        menuShowHighlight={menuShowHighlight} setMenuShowHighlight={setMenuShowHighlight}
+        menuShowNotes={menuShowNotes} setMenuShowNotes={setMenuShowNotes}
+        showBottomLeftBar={showBottomLeftBar} setShowBottomLeftBar={setShowBottomLeftBar}
+        gestureControl={gestureControl} setGestureControl={setGestureControl}
+        showReticle={showReticle} setShowReticle={setShowReticle}
+        bgBlur={bgBlur} setBgBlur={setBgBlur}
+        clauseMenuOpen={clauseMenuOpen} gestureBadgeText={gestureBadgeText} mouthScore={mouthScore}
+        voiceError={voiceError} toggleMicrophone={toggleMicrophone} listenOnce={listenOnce}
+        micActive={micActive} voiceMode={voiceMode} setVoiceMode={setVoiceMode} voiceLog={voiceLog}
+        unifiedSurfaceClass={unifiedSurfaceClass} unifiedSubtleBoxClass={unifiedSubtleBoxClass}
         onPointerEnter={() => { uiInteractingRef.current = true; }}
         onPointerLeave={() => { if (!isDraggingSliderRef.current) uiInteractingRef.current = false; }}
         onInteractChange={(active) => { uiInteractingRef.current = active; }}
       />
+
       <ReadingView
-        title={currentChapterTitle}
-        lines={currentLines}
-        activeLineIdx={activeLineIdx}
-        activeClauseId={activeClauseId}
-        clauseMenuOpen={clauseMenuOpen}
-        highlightedClauses={highlightedClauses}
-        underlinedClauses={underlinedClauses}
-        noCameraMode={noCameraMode}
-        isCalibrated={isCalibrated}
-        bgBlur={bgBlur}
-        showReticle={showReticle}
-        showRowMeta={showRowMeta}
-        fontSize={fontSize}
-        fontFamily={fontFamily}
-        readingWidthPct={readingWidthPct}
-        lineHeightPx={lineHeightPx}
-        rowsPerPage={ROWS_PER_PAGE}
-        clauseGapPx={CLAUSE_GAP_PX}
-        getFontCssString={getFontCssString}
-        rowsContainerRef={rowsContainerRef}
-        menuShowBookmark={menuShowBookmark}
-        menuShowHighlight={menuShowHighlight}
-        menuShowNotes={menuShowNotes}
-        isNight={isNight}
-        unifiedSurfaceClass={unifiedSurfaceClass}
-        rowBadgeWeakContrastClass={rowBadgeWeakContrastClass}
+        title={currentChapterTitle} lines={currentLines} activeLineIdx={activeLineIdx} activeClauseId={activeClauseId}
+        clauseMenuOpen={clauseMenuOpen} highlightedClauses={highlightedClauses} underlinedClauses={underlinedClauses}
+        noCameraMode={noCameraMode} isCalibrated={isCalibrated} bgBlur={bgBlur} showReticle={showReticle}
+        showRowMeta={showRowMeta} fontSize={fontSize} fontFamily={fontFamily} readingWidthPct={readingWidthPct}
+        lineHeightPx={lineHeightPx} rowsPerPage={ROWS_PER_PAGE} clauseGapPx={CLAUSE_GAP_PX}
+        getFontCssString={getFontCssString} rowsContainerRef={rowsContainerRef}
+        menuShowBookmark={menuShowBookmark} menuShowHighlight={menuShowHighlight} menuShowNotes={menuShowNotes}
+        isNight={isNight} unifiedSurfaceClass={unifiedSurfaceClass} rowBadgeWeakContrastClass={rowBadgeWeakContrastClass}
         clauseClickRatio={clauseClickRatio}
-        onSentenceClick={onSentenceClick}
-        onSentenceDoubleClick={onSentenceDoubleClick}
-        onPointerMoveGaze={onPointerMoveGaze}
-        onAddBookmark={addBookmarkForActiveClause}
-        onToggleHighlight={toggleHighlightActiveClause}
-        onToggleUnderline={toggleUnderlineActiveClause}
-        onAddToNotes={addActiveSentenceToNotes}
-        onCopy={copyActiveClause}
+        onSentenceClick={onSentenceClick} onSentenceDoubleClick={onSentenceDoubleClick} onPointerMoveGaze={onPointerMoveGaze}
+        onAddBookmark={addBookmarkForActiveClause} onToggleHighlight={toggleHighlightActiveClause}
+        onToggleUnderline={toggleUnderlineActiveClause} onAddToNotes={addActiveSentenceToNotes} onCopy={copyActiveClause}
       />
+
       {showGazeCursor && !isCalibrating && (isCalibrated || noCameraMode) && (
         <div className="pointer-events-none fixed inset-0 z-30">
-          <div
-            className="w-4 h-4 -ml-2 -mt-2 rounded-full bg-indigo-500/75 border border-white/90 shadow-[0_0_12px_rgba(99,102,241,0.85)] transition-transform duration-75"
-            style={{ transform: `translate3d(${gazePoint.x}px, ${gazePoint.y}px, 0)` }}
-          />
+          <div className="w-4 h-4 -ml-2 -mt-2 rounded-full bg-indigo-500/75 border border-white/90 shadow-[0_0_12px_rgba(99,102,241,0.85)] transition-transform duration-75" style={{ transform: `translate3d(${gazePoint.x}px, ${gazePoint.y}px, 0)` }} />
         </div>
       )}
+
       <StatusBanners
-        toast={statusToast}
-        showReturnConfirm={showReturnConfirm}
-        pageIdx={pageIdx}
-        activeLineIdx={activeLineIdx}
-        readingSeconds={readingSeconds}
-        formatTime={formatTime}
-        onResume={() => {
-          setIsOffScreenPaused(false);
-          setShowReturnConfirm(false);
-          setMultimodalTriggerState("Timer Resumed");
-        }}
-        showGuideBanner={showGuideBanner}
-        noCameraMode={noCameraMode}
-        onDismissGuide={() => setDismissGuideBanner(true)}
-        unifiedSurfaceClass={unifiedSurfaceClass}
-        unifiedSubtleBoxClass={unifiedSubtleBoxClass}
+        toast={statusToast} showReturnConfirm={showReturnConfirm} pageIdx={pageIdx} activeLineIdx={activeLineIdx}
+        readingSeconds={readingSeconds} formatTime={formatTime}
+        onResume={() => { setIsOffScreenPaused(false); setShowReturnConfirm(false); setMultimodalTriggerState("Timer Resumed"); }}
+        showGuideBanner={showGuideBanner} noCameraMode={noCameraMode} onDismissGuide={() => setDismissGuideBanner(true)}
+        unifiedSurfaceClass={unifiedSurfaceClass} unifiedSubtleBoxClass={unifiedSubtleBoxClass}
       />
+
+      {/* 保留的 FaceAssistLayer 冲突清理 */}
       <FaceAssistLayer
         prompt={facePrompt}
         observation={faceObservation}
@@ -1178,56 +926,29 @@ export default function SingleBookReadingInterface() {
         onCancelBaseline={cancelBaselineCapture}
         onRequestDemoPrompt={requestDemoPrompt}
       />
-      <PaginationFooter
-        pageIdx={pageIdx}
-        pageCount={pages.length}
-        onPrev={handlePagePrev}
-        onNext={handlePageNext}
-      />
+
+      <PaginationFooter pageIdx={pageIdx} pageCount={pages.length} onPrev={handlePagePrev} onNext={handlePageNext} />
+
       <BuyModal
-        open={buyModalOpen}
-        onClose={() => setBuyModalOpen(false)}
-        currentChapterTitle={currentChapterTitle}
+        open={buyModalOpen} onClose={() => setBuyModalOpen(false)} currentChapterTitle={currentChapterTitle}
         isPurchased={isPurchased}
-        onPurchase={() => {
-          setIsPurchased(true);
-          setBuyModalOpen(false);
-          showToast("Purchase Complete", `Unlocked full edition of "${currentChapterTitle}"`);
-        }}
-        unifiedSurfaceClass={unifiedSurfaceClass}
-        unifiedSubtleBoxClass={unifiedSubtleBoxClass}
+        onPurchase={() => { setIsPurchased(true); setBuyModalOpen(false); showToast("Purchase Complete", `Unlocked full edition of "${currentChapterTitle}"`); }}
+        unifiedSurfaceClass={unifiedSurfaceClass} unifiedSubtleBoxClass={unifiedSubtleBoxClass}
       />
+
       <NotesModal
-        open={notesModalOpen}
-        onClose={() => setNotesModalOpen(false)}
-        highlightedClauses={highlightedClauses}
-        getSentenceTextById={getSentenceTextById}
-        onRemoveHighlight={(cid) =>
-          setHighlightedClauses((prev) => {
-            const next = new Set(prev);
-            next.delete(cid);
-            return next;
-          })
-        }
-        showToast={showToast}
-        noteInputText={noteInputText}
-        setNoteInputText={setNoteInputText}
-        notesList={notesList}
-        setNotesList={setNotesList}
-        handleFileUpload={handleFileUpload}
-        unifiedSurfaceClass={unifiedSurfaceClass}
-        unifiedSubtleBoxClass={unifiedSubtleBoxClass}
+        open={notesModalOpen} onClose={() => setNotesModalOpen(false)}
+        highlightedClauses={highlightedClauses} getSentenceTextById={getSentenceTextById}
+        onRemoveHighlight={(cid) => setHighlightedClauses((prev) => { const next = new Set(prev); next.delete(cid); return next; })}
+        showToast={showToast} noteInputText={noteInputText} setNoteInputText={setNoteInputText}
+        notesList={notesList} setNotesList={setNotesList} handleFileUpload={handleFileUpload}
+        unifiedSurfaceClass={unifiedSurfaceClass} unifiedSubtleBoxClass={unifiedSubtleBoxClass}
       />
+
       <CalibrationOverlay
-        isCalibrating={isCalibrating}
-        calibStep={calibStep}
-        calibSampleProgress={calibSampleProgress}
+        isCalibrating={isCalibrating} calibStep={calibStep} calibSampleProgress={calibSampleProgress}
         onPointClick={handleCalibPointClick}
-        onExit={() => {
-          collectingPointRef.current = null;
-          setCalibSampleProgress(0);
-          setIsCalibrating(false);
-        }}
+        onExit={() => { collectingPointRef.current = null; setCalibSampleProgress(0); setIsCalibrating(false); }}
       />
     </div>
   );

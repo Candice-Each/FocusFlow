@@ -1,6 +1,17 @@
+// file: lib/theme.ts
 export type BgTheme = "Paper" | "White" | "Night";
 export type TextColor = "Black" | "Gray" | "Soft";
-export type FontFamily = "Georgia" | "Inter" | "Literata";
+
+// 扩展字体类型
+export type FontFamily =
+  | "Georgia"
+  | "Inter"
+  | "Literata"
+  | "Times New Roman"
+  | "Arial"
+  | "Verdana"
+  | "Courier New"
+  | "System";
 
 export interface ReadingSettingsState {
   fontFamily: FontFamily;

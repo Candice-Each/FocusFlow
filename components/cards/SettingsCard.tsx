@@ -25,8 +25,6 @@ interface SettingsCardProps {
   setMenuShowHighlight: React.Dispatch<React.SetStateAction<boolean>>;
   menuShowNotes: boolean;
   setMenuShowNotes: React.Dispatch<React.SetStateAction<boolean>>;
-  showBottomLeftBar: boolean;
-  setShowBottomLeftBar: React.Dispatch<React.SetStateAction<boolean>>;
   unifiedSurfaceClass: string;
   unifiedSubtleBoxClass: string;
   dragHandle: React.ReactNode;
@@ -56,8 +54,6 @@ export function SettingsCard(props: SettingsCardProps) {
     setMenuShowHighlight,
     menuShowNotes,
     setMenuShowNotes,
-    showBottomLeftBar,
-    setShowBottomLeftBar,
     unifiedSurfaceClass,
     unifiedSubtleBoxClass,
     dragHandle,
@@ -81,16 +77,17 @@ export function SettingsCard(props: SettingsCardProps) {
 
       <div>
         <div className="text-[11px] opacity-55 mb-1.5">Font Family</div>
-        <div className="flex items-center gap-2">
-          {(["Georgia", "Inter", "Literata"] as const).map((f) => (
+        {/* 扩展字体按钮并支持自动换行 */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(["Georgia", "Inter", "Literata", "Times New Roman", "Arial", "Verdana", "Courier New", "System"] as const).map((f) => (
             <button
               type="button"
               key={f}
               onClick={() => setFontFamily(f)}
-              className={`px-3 py-1 rounded-full text-xs border transition ${
+              className={`px-2.5 py-1 rounded-full text-[11px] border transition ${
                 fontFamily === f
                   ? "bg-stone-900 text-white border-stone-900 font-medium"
-                  : "border-stone-300/80 opacity-75 hover:opacity-100"
+                  : "border-stone-300/80 opacity-75 hover:opacity-100 hover:bg-stone-100"
               }`}
             >
               {f}
@@ -212,7 +209,7 @@ export function SettingsCard(props: SettingsCardProps) {
 
       <div className="space-y-2 pt-2 border-t border-stone-300/40">
         <div className="text-[11px] opacity-55 whitespace-nowrap">
-          Mouth Menu Items & Bottom-Left Bar
+          Mouth Menu Items
         </div>
 
         {[
@@ -231,11 +228,11 @@ export function SettingsCard(props: SettingsCardProps) {
             val: menuShowNotes,
             set: setMenuShowNotes,
           },
-          {
-            label: "Bottom-Left Difficulty Bar",
-            val: showBottomLeftBar,
-            set: setShowBottomLeftBar,
-          },
+          // {
+          //   label: "Bottom-Left Difficulty Bar",
+          //   val: showBottomLeftBar,
+          //   set: setShowBottomLeftBar,
+          // },
         ].map((item) => (
           <div
             key={item.label}

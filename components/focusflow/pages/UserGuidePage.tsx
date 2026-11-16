@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { playSubtleEarcon } from "@/lib/focusflow/earcon";
 
-type GuideTab = "Gesture" | "Posture" | "Voice";
+type GuideTab = "Gesture" | "Posture" | "Voice" | "Eye";
 
 export function UserGuidePage() {
   const [subTab, setSubTab] = useState<GuideTab>("Gesture");
@@ -17,50 +17,69 @@ export function UserGuidePage() {
   const [activePostureType, setActivePostureType] = useState<"Forward" | "Tilt" | "Too close">("Forward");
   const [edgeCueActive, setEdgeCueActive] = useState(false);
 
+
   // Voice subpage
   const [selectedVoiceIdx, setSelectedVoiceIdx] = useState(0);
-  const [voiceSimLog, setVoiceSimLog] = useState(
-    "Ready — click Test Command to hear earcon confirmation"
-  );
+  const [voiceSimLog, setVoiceSimLog] = useState("Ready — click Test Command to hear earcon confirmation");
+
+  const [selectedEyeIdx, setSelectedEyeIdx] = useState(0);
+  const [eyeSimLog, setEyeSimLog] = useState("Select a feature to explore.");
 
   const gestureItems = [
-    { name: "Swipe up", desc: "Move down the page", badgeText: "Swipe up",
-      detail: "A complete upward hand sweep scrolls the active passage down smoothly." },
-    { name: "Swipe down", desc: "Move up the page", badgeText: "Swipe down",
-      detail: "A complete downward hand sweep returns to the upper passage." },
-    { name: "Left or right", desc: "Previous or next chapter", badgeText: "Chapter Sweep",
-      detail: "Swiping horizontally switches between the previous or next chapter." },
-    { name: "Pinch and drag", desc: "Adjust reading width", badgeText: "Pinch & Drag",
-      detail: "Pinch thumb and index finger to fine-tune the reading column margin." },
-    { name: "Open palm", desc: "Pause or summon menu", badgeText: "Open Palm",
-      detail: "Hold an open palm steady inside the zone to pause timing or open quick actions." },
+    { name: "Swipe up", desc: "Move down the page", badgeText: "Swipe up", detail: "A complete upward hand sweep scrolls the active passage down smoothly." },
+    { name: "Swipe down", desc: "Move up the page", badgeText: "Swipe down", detail: "A complete downward hand sweep returns to the upper passage." },
+    { name: "Left or right", desc: "Previous or next chapter", badgeText: "Chapter Sweep", detail: "Swiping horizontally switches between the previous or next chapter." },
+    { name: "Pinch and drag", desc: "Adjust reading width", badgeText: "Pinch & Drag", detail: "Pinch thumb and index finger to fine-tune the reading column margin." },
+    { name: "Open palm", desc: "Pause or summon menu", badgeText: "Open Palm", detail: "Hold an open palm steady inside the zone to pause timing or open quick actions." },
   ];
 
   const voiceItems = [
-    { cmd: "Next line", desc: "Move the active sentence down one row",
-      previewTitle: "Move to the next line",
-      previewBody: "Says \"hey focus next line\". Only a finished utterance is acted on; a half sentence is ignored so the page never jumps on a slip of the tongue." },
-    { cmd: "Next page", desc: "Turn to the next page",
-      previewTitle: "Turn the page forward",
-      previewBody: "Blocked at the last page with a spoken-style prompt instead of silently doing nothing." },
-    { cmd: "Previous chapter", desc: "Return to the previous chapter",
-      previewTitle: "Return to previous chapter",
-      previewBody: "Switches immediately to the preceding chapter without touching the mouse or keyboard." },
-    { cmd: "Open menu", desc: "Summon the sentence action bar",
-      previewTitle: "Open the quick action bar",
-      previewBody: "Replaces hunting for the floating menu: the sentence currently held by your gaze gets its action bar." },
-    { cmd: "Read this line", desc: "Start TTS narration from the active line",
-      previewTitle: "Start TTS narration",
-      previewBody: "Initiates calm spoken narration from the active sentence for multisensory reinforcement." },
-    { cmd: "Save this line", desc: "Bookmark the active sentence",
-      previewTitle: "Choose a sentence",
-      previewBody: "Anchors a bookmark on the sentence currently held by your gaze and logs the timestamp." },
-    { cmd: "Font bigger", desc: "Increase the reading font size",
-      previewTitle: "Increase text size",
-      previewBody: "Font size steps by two points per command so a single mishearing does not blow up the page." },
-    { cmd: "Stop dictation", desc: "End a Notes-mode voice note",
-      previewTitle: "Finish the voice note",
-      previewBody: "In Notes mode every final is appended to the note list; this phrase closes the note." },
+    { cmd: "Next line", desc: "Move the active sentence down one row", previewTitle: "Move to the next line", previewBody: "Says \"hey focus next line\". Only a finished utterance is acted on; a half sentence is ignored so the page never jumps on a slip of the tongue." },
+    { cmd: "Next page", desc: "Turn to the next page", previewTitle: "Turn the page forward", previewBody: "Blocked at the last page with a spoken-style prompt instead of silently doing nothing." },
+    { cmd: "Open menu", desc: "Summon the sentence action bar", previewTitle: "Open the quick action bar", previewBody: "Replaces hunting for the floating menu: the sentence currently held by your gaze gets its action bar." },
+  ];
+
+  const eyeItems = [
+    {
+      name: "Line Sensitivity Sliders",
+      desc: "Adjust how easily a glance triggers a line turn.",
+      previewTitle: "Tune Your Reading Flow",
+      previewBody: "The three sliders at the bottom left control how much eye movement is required to move to the next line (Next), go back (Prev), or skip downward (Skip). Adjust them in the right sidebar to match your reading speed.",
+      actionText: "Preview Sliders",
+      actionLog: "Look bottom-left on the reading page to adjust."
+    },
+    {
+      name: "Live Camera & Mesh",
+      desc: "Real-time feedback of your face and tracking points.",
+      previewTitle: "Spatial Tracking Windows",
+      previewBody: "Floating windows show your live camera feed and the topology mesh of your face. These are perfect for debugging if the gaze tracking feels inaccurate. You can toggle them in the Display Controls.",
+      actionText: "Test Window Toggle",
+      actionLog: "Live windows are draggable across the screen."
+    },
+    {
+      name: "Gaze Heatmap",
+      desc: "Visualize where your eyes linger the most.",
+      previewTitle: "Attention Map",
+      previewBody: "A subtle heatmap overlays the page, showing which sentences attracted the most fixation time. It decays over time so you can track your immediate focus.",
+      actionText: "Toggle Heatmap",
+      actionLog: "Heatmap visible on reading page."
+    },
+    {
+      name: "Gaze Highlight",
+      desc: "Highlights the sentence you are currently reading.",
+      previewTitle: "Automatic Sentence Highlighting",
+      previewBody: "The system follows your gaze and softly highlights the active sentence without you lifting a finger. Blinks are filtered out so the highlight stays steady.",
+      actionText: "Simulate Fixation",
+      actionLog: "Gaze locked on sentence. Highlight applied."
+    },
+    {
+      name: "Mouth Gesture Menu",
+      desc: "Open your mouth to summon the action bar.",
+      previewTitle: "Mouth-Triggered Quick Actions",
+      previewBody: "When you need to bookmark or copy a sentence, simply open your mouth wide. A selection box will anchor to your current gaze point.",
+      actionText: "Simulate Mouth Open",
+      actionLog: "Jaw open detected. Selection box anchored."
+    }
   ];
 
   const triggerPostureCorrectionDemo = () => {
@@ -70,18 +89,10 @@ export function UserGuidePage() {
   };
 
   const headerConfig = {
-    Gesture: {
-      title: "What the hand does",
-      subtitle: "Only a finished gesture is counted. Halfway movement is ignored so the page stays calm.",
-    },
-    Posture: {
-      title: "Return to upright",
-      subtitle: "Posture is checked in the background. When you lean in or tilt for too long, a soft edge cue asks you to sit back.",
-    },
-    Voice: {
-      title: "How to speak",
-      subtitle: "Say the wake word first, then a short verb and object. Half sentences are ignored, repeated commands are throttled, and failed phrases are logged.",
-    },
+    Gesture: { title: "What the hand does", subtitle: "Only a finished gesture is counted. Halfway movement is ignored so the page stays calm." },
+    Posture: { title: "Return to upright", subtitle: "Posture is checked in the background. When you lean in or tilt for too long, a soft edge cue asks you to sit back." },
+    Voice: { title: "How to speak", subtitle: "Say the wake word first, then a short verb and object. Half sentences are ignored, repeated commands are throttled, and failed phrases are logged." },
+    Eye: { title: "Gaze as a cursor", subtitle: "Master the sensitivity sliders, live mapping windows, and heatmap overlays to create your perfect reading environment." },
   }[subTab];
 
   return (
@@ -90,24 +101,18 @@ export function UserGuidePage() {
         <div className="pointer-events-none fixed inset-0 z-50 border-[10px] border-amber-500/35 shadow-[inset_0_0_48px_rgba(245,158,11,0.28)] transition-opacity duration-500" />
       )}
 
-      <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-400 mb-1">
-        FIRST SESSION
-      </div>
+      <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-400 mb-1">FIRST SESSION</div>
       <h1 className="font-serif text-4xl text-stone-900 mb-2">{headerConfig.title}</h1>
-      <p className="text-xs text-stone-500 max-w-xl leading-relaxed mb-6">
-        {headerConfig.subtitle}
-      </p>
+      <p className="text-xs text-stone-500 max-w-xl leading-relaxed mb-6">{headerConfig.subtitle}</p>
 
       <div className="flex items-center gap-2 mb-7">
-        {(["Gesture", "Posture", "Voice"] as const).map((tab) => (
+        {(["Gesture", "Posture", "Voice", "Eye"] as const).map((tab) => (
           <button
             type="button"
             key={tab}
             onClick={() => setSubTab(tab)}
             className={`px-4 py-1.5 rounded-full text-xs border transition ${
-              subTab === tab
-                ? "bg-stone-900 text-white border-stone-900 font-medium"
-                : "bg-white text-stone-600 border-stone-200/90 hover:border-stone-400"
+              subTab === tab ? "bg-stone-900 text-white border-stone-900 font-medium" : "bg-white text-stone-600 border-stone-200/90 hover:border-stone-400"
             }`}
           >
             {tab}
@@ -265,6 +270,9 @@ export function UserGuidePage() {
         </div>
       )}
 
+      {/* ==========================================
+          Voice 视图 (补全了原本缺失的 UI)
+          ========================================== */}
       {subTab === "Voice" && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           <div className="md:col-span-7 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm">
@@ -281,9 +289,7 @@ export function UserGuidePage() {
                       setVoiceSimLog(`Recognised: "${item.cmd}" — earcon played`);
                     }}
                     className={`px-4 py-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
-                      isSelected
-                        ? "border-stone-900 bg-stone-50/70 shadow-sm"
-                        : "border-transparent hover:bg-stone-100/60"
+                      isSelected ? "border-stone-900 bg-stone-50/70 shadow-sm" : "border-transparent hover:bg-stone-100/60"
                     }`}
                   >
                     <div>
@@ -299,9 +305,7 @@ export function UserGuidePage() {
 
           <div className="md:col-span-5 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm flex flex-col justify-between">
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">
-                COMMAND ACTION
-              </div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">COMMAND ACTION</div>
               <div className="font-serif text-2xl text-stone-900 mb-2">
                 {voiceItems[selectedVoiceIdx]?.previewTitle}
               </div>
@@ -335,6 +339,72 @@ export function UserGuidePage() {
                   className="px-3.5 py-1.5 rounded-full border border-stone-300 text-stone-700 text-xs hover:bg-stone-100 transition"
                 >
                   Simulate Half-Sentence
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {subTab === "Eye" && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          {/* 左侧列表 */}
+          <div className="md:col-span-7 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm">
+            <h3 className="text-xs font-serif font-medium text-stone-800 mb-4">Gaze Features & Settings</h3>
+            <div className="space-y-2.5">
+              {eyeItems.map((item, idx) => {
+                const isSelected = selectedEyeIdx === idx;
+                return (
+                  <div
+                    key={item.name}
+                    onClick={() => {
+                      setSelectedEyeIdx(idx);
+                      playSubtleEarcon(659.25, 140);
+                      setEyeSimLog(`Selected: "${item.name}" — explore the details.`);
+                    }}
+                    className={`px-4 py-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                      isSelected ? "border-stone-900 bg-stone-50/70 shadow-sm" : "border-transparent hover:bg-stone-100/60"
+                    }`}
+                  >
+                    <div>
+                      <div className="text-xs font-semibold text-stone-900">{item.name}</div>
+                      <div className="text-[11px] text-stone-500 mt-0.5">{item.desc}</div>
+                    </div>
+                    <span className="text-xs font-mono text-stone-400">{idx + 1}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 右侧详情 */}
+          <div className="md:col-span-5 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">
+                FEATURE DETAIL
+              </div>
+              <div className="font-serif text-2xl text-stone-900 mb-2">
+                {eyeItems[selectedEyeIdx]?.previewTitle}
+              </div>
+              <p className="text-xs text-stone-500 leading-relaxed mb-6">
+                {eyeItems[selectedEyeIdx]?.previewBody}
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <div className="p-3 rounded-xl bg-[#f5f3ef] border border-stone-200/80 text-xs font-mono text-stone-700">
+                {eyeSimLog}
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    playSubtleEarcon(520 + selectedEyeIdx * 35, 120);
+                    setEyeSimLog(eyeItems[selectedEyeIdx].actionLog);
+                  }}
+                  className="px-4 py-1.5 rounded-full bg-stone-900 text-white text-xs font-medium hover:bg-stone-800 transition"
+                >
+                  {eyeItems[selectedEyeIdx]?.actionText}
                 </button>
               </div>
             </div>
