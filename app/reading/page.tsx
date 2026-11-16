@@ -30,6 +30,7 @@ import { RightSidebar } from "@/components/RightSidebar";
 import { MonitorWindows } from "@/components/MonitorWindows";
 import { CalibrationOverlay } from "@/components/CalibrationOverlay";
 import { StatusBanners } from "@/components/StatusBanners";
+import { FaceAssistLayer } from "@/components/FaceAssistLayer";
 import { PaginationFooter } from "@/components/PaginationFooter";
 import { BottomLeftSliders } from "@/components/BottomLeftSliders";
 import { BuyModal } from "@/components/modals/BuyModal";
@@ -239,24 +240,73 @@ export default function SingleBookReadingInterface() {
     isDraggingSliderRef,
   });
   const {
+    baseline: personalFaceBaseline,
     observation: faceObservation,
     capture: faceBaselineCapture,
     readingDifficultySignal,
+    activePrompt: facePrompt,
+    breakRemainingSeconds,
     requestBaselineCapture,
     startBaselineCapture,
+    cancelBaselineCapture,
+    dismissPrompt: dismissFacePrompt,
+    snoozePrompt: snoozeFacePrompt,
+    disablePromptKind,
+    requestDemoPrompt,
+    startRestBreak,
   } = useFaceBehavior({
     latestTelemetryRef,
     trackingQuality,
     cameraStatus,
     enabled: faceBehaviorEnabled && !noCameraMode,
-    readingActive: !isOffScreenPaused && !showReturnConfirm,
-    promptsBlocked: isCalibrating || clauseMenuOpen,
+    readingActive:
+      !isOffScreenPaused && !showReturnConfirm && !isCalibrating,
+    promptsBlocked: showReturnConfirm || isCalibrating || clauseMenuOpen,
     isCalibrated,
     pageIdx,
     activeLineIdx,
     activeClauseId,
     demoMode: faceDemoMode,
   });
+  useEffect(() => {
+    if (!personalFaceBaseline) return;
+    const timer = window.setTimeout(
+      () =>
+        setFaceBaseline({
+          yaw: Math.round(personalFaceBaseline.yawDeg),
+          pitch: Math.round(personalFaceBaseline.pitchDeg),
+          roll: Math.round(personalFaceBaseline.rollDeg),
+          jaw: personalFaceBaseline.jawOpen,
+        }),
+      0
+    );
+    return () => window.clearTimeout(timer);
+  }, [personalFaceBaseline]);
+  useEffect(() => {
+    let nextState = "Idle";
+    if (!faceBehaviorEnabled || noCameraMode) nextState = "Face Support Off";
+    else if (facePrompt) nextState = `Prompt: ${facePrompt.kind}`;
+    else if (faceObservation.cognitiveStrainCandidate && readingDifficultySignal)
+      nextState = "Understanding Gate Eligible";
+    else if (faceObservation.cognitiveStrainCandidate)
+      nextState = "Facial Candidate Only";
+    else if (faceObservation.phase === "tracking-limited")
+      nextState = "Analysis Paused: Limited";
+    else if (faceObservation.phase === "tracking-unavailable")
+      nextState = "Analysis Paused: Unavailable";
+    const timer = window.setTimeout(
+      () => setMultimodalTriggerState(nextState),
+      0
+    );
+    return () => window.clearTimeout(timer);
+  }, [
+    faceBehaviorEnabled,
+    faceObservation.cognitiveStrainCandidate,
+    faceObservation.phase,
+    facePrompt,
+    noCameraMode,
+    readingDifficultySignal,
+  ]);
   useEffect(() => {
     const row = pages[pageIdx]?.[activeLineIdx];
     if (!row || row.segments.length === 0) return;
@@ -294,6 +344,10 @@ export default function SingleBookReadingInterface() {
     const seg = activeRow?.segments.find((s) => s.clauseId === activeClauseId) ?? activeRow?.segments[0];
     return seg ? seg.text.trim() : getSentenceTextById(activeClauseId);
   }, [currentLines, activeLineIdx, activeClauseId, getSentenceTextById]);
+  const faceAssistanceSourceText =
+    facePrompt?.kind === "understanding"
+      ? getSentenceTextById(facePrompt.targetClauseId) || getActiveSentenceText()
+      : getActiveSentenceText();
   const toggleTtsReading = useCallback((readSingleSentence = false) => {
     if (typeof window === "undefined" || !("speechSynthesis" in window)) {
       showToast("TTS Unavailable", "Web Speech synthesis is not supported in this browser");
@@ -402,6 +456,7 @@ export default function SingleBookReadingInterface() {
     } else {
       showToast("Baseline Failed", "Improve lighting and keep your face clearly visible");
     }
+    return started;
   }, [startBaselineCapture, showToast]);
   const startCalibration = useCallback(() => {
     calibSamplesRef.current = { X: [], Y: [] };
@@ -1103,6 +1158,25 @@ export default function SingleBookReadingInterface() {
         onDismissGuide={() => setDismissGuideBanner(true)}
         unifiedSurfaceClass={unifiedSurfaceClass}
         unifiedSubtleBoxClass={unifiedSubtleBoxClass}
+      />
+      <FaceAssistLayer
+        prompt={facePrompt}
+        observation={faceObservation}
+        baseline={personalFaceBaseline}
+        capture={faceBaselineCapture}
+        readingDifficultySignal={readingDifficultySignal}
+        breakRemainingSeconds={breakRemainingSeconds}
+        assistanceSourceText={faceAssistanceSourceText}
+        demoMode={faceDemoMode}
+        isNight={isNight}
+        onDismissPrompt={dismissFacePrompt}
+        onSnoozePrompt={snoozeFacePrompt}
+        onDisablePromptKind={disablePromptKind}
+        onStartRestBreak={startRestBreak}
+        onRequestBaseline={requestBaselineCapture}
+        onStartBaseline={beginPersonalFaceBaseline}
+        onCancelBaseline={cancelBaselineCapture}
+        onRequestDemoPrompt={requestDemoPrompt}
       />
       <PaginationFooter
         pageIdx={pageIdx}
