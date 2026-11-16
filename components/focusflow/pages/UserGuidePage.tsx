@@ -26,17 +26,43 @@ export function UserGuidePage() {
   const [eyeSimLog, setEyeSimLog] = useState("Select a feature to explore.");
 
   const gestureItems = [
-    { name: "Swipe up", desc: "Move down the page", badgeText: "Swipe up", detail: "A complete upward hand sweep scrolls the active passage down smoothly." },
-    { name: "Swipe down", desc: "Move up the page", badgeText: "Swipe down", detail: "A complete downward hand sweep returns to the upper passage." },
-    { name: "Left or right", desc: "Previous or next chapter", badgeText: "Chapter Sweep", detail: "Swiping horizontally switches between the previous or next chapter." },
-    { name: "Pinch and drag", desc: "Adjust reading width", badgeText: "Pinch & Drag", detail: "Pinch thumb and index finger to fine-tune the reading column margin." },
-    { name: "Open palm", desc: "Pause or summon menu", badgeText: "Open Palm", detail: "Hold an open palm steady inside the zone to pause timing or open quick actions." },
+    { name: "Swipe up", desc: "Move down the page", badgeText: "Swipe up",
+      detail: "A complete upward hand sweep scrolls the active passage down smoothly." },
+    { name: "Swipe down", desc: "Move up the page", badgeText: "Swipe down",
+      detail: "A complete downward hand sweep returns to the upper passage." },
+    { name: "Left or right", desc: "Previous or next chapter", badgeText: "Chapter Sweep",
+      detail: "Swiping horizontally switches between the previous or next chapter." },
+    { name: "Pinch and drag", desc: "Adjust reading width", badgeText: "Pinch & Drag",
+      detail: "Pinch thumb and index finger to fine-tune the reading column margin." },
+    { name: "Open palm", desc: "Pause or summon menu", badgeText: "Open Palm",
+      detail: "Hold an open palm steady inside the zone to pause timing or open quick actions." },
   ];
 
   const voiceItems = [
-    { cmd: "Next line", desc: "Move the active sentence down one row", previewTitle: "Move to the next line", previewBody: "Says \"hey focus next line\". Only a finished utterance is acted on; a half sentence is ignored so the page never jumps on a slip of the tongue." },
-    { cmd: "Next page", desc: "Turn to the next page", previewTitle: "Turn the page forward", previewBody: "Blocked at the last page with a spoken-style prompt instead of silently doing nothing." },
-    { cmd: "Open menu", desc: "Summon the sentence action bar", previewTitle: "Open the quick action bar", previewBody: "Replaces hunting for the floating menu: the sentence currently held by your gaze gets its action bar." },
+    { cmd: "Next line", desc: "Move the active sentence down one row",
+      previewTitle: "Move to the next line",
+      previewBody: "Says \"hey focus next line\". Only a finished utterance is acted on; a half sentence is ignored so the page never jumps on a slip of the tongue." },
+    { cmd: "Next page", desc: "Turn to the next page",
+      previewTitle: "Turn the page forward",
+      previewBody: "Blocked at the last page with a spoken-style prompt instead of silently doing nothing." },
+    { cmd: "Previous chapter", desc: "Return to the previous chapter",
+      previewTitle: "Return to previous chapter",
+      previewBody: "Switches immediately to the preceding chapter without touching the mouse or keyboard." },
+    { cmd: "Open menu", desc: "Summon the sentence action bar",
+      previewTitle: "Open the quick action bar",
+      previewBody: "Replaces hunting for the floating menu: the sentence currently held by your gaze gets its action bar." },
+    { cmd: "Read this line", desc: "Start TTS narration from the active line",
+      previewTitle: "Start TTS narration",
+      previewBody: "Initiates calm spoken narration from the active sentence for multisensory reinforcement." },
+    { cmd: "Save this line", desc: "Bookmark the active sentence",
+      previewTitle: "Choose a sentence",
+      previewBody: "Anchors a bookmark on the sentence currently held by your gaze and logs the timestamp." },
+    { cmd: "Font bigger", desc: "Increase the reading font size",
+      previewTitle: "Increase text size",
+      previewBody: "Font size steps by two points per command so a single mishearing does not blow up the page." },
+    { cmd: "Stop dictation", desc: "End a Notes-mode voice note",
+      previewTitle: "Finish the voice note",
+      previewBody: "In Notes mode every final is appended to the note list; this phrase closes the note." },
   ];
 
   const eyeItems = [
@@ -89,10 +115,22 @@ export function UserGuidePage() {
   };
 
   const headerConfig = {
-    Gesture: { title: "What the hand does", subtitle: "Only a finished gesture is counted. Halfway movement is ignored so the page stays calm." },
-    Posture: { title: "Return to upright", subtitle: "Posture is checked in the background. When you lean in or tilt for too long, a soft edge cue asks you to sit back." },
-    Voice: { title: "How to speak", subtitle: "Say the wake word first, then a short verb and object. Half sentences are ignored, repeated commands are throttled, and failed phrases are logged." },
-    Eye: { title: "Gaze as a cursor", subtitle: "Master the sensitivity sliders, live mapping windows, and heatmap overlays to create your perfect reading environment." },
+    Gesture: {
+      title: "What the hand does",
+      subtitle: "Only a finished gesture is counted. Halfway movement is ignored so the page stays calm.",
+    },
+    Posture: {
+      title: "Return to upright",
+      subtitle: "Posture is checked in the background. When you lean in or tilt for too long, a soft edge cue asks you to sit back.",
+    },
+    Voice: {
+      title: "How to speak",
+      subtitle: "Say the wake word first, then a short verb and object. Half sentences are ignored, repeated commands are throttled, and failed phrases are logged.",
+    },
+    Eye: {
+      title: "Gaze as a cursor",
+      subtitle: "Look naturally. The system highlights the active sentence and offers quick actions via mouth gestures.",
+    },
   }[subTab];
 
   return (
@@ -101,9 +139,13 @@ export function UserGuidePage() {
         <div className="pointer-events-none fixed inset-0 z-50 border-[10px] border-amber-500/35 shadow-[inset_0_0_48px_rgba(245,158,11,0.28)] transition-opacity duration-500" />
       )}
 
-      <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-400 mb-1">FIRST SESSION</div>
+      <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-400 mb-1">
+        FIRST SESSION
+      </div>
       <h1 className="font-serif text-4xl text-stone-900 mb-2">{headerConfig.title}</h1>
-      <p className="text-xs text-stone-500 max-w-xl leading-relaxed mb-6">{headerConfig.subtitle}</p>
+      <p className="text-xs text-stone-500 max-w-xl leading-relaxed mb-6">
+        {headerConfig.subtitle}
+      </p>
 
       <div className="flex items-center gap-2 mb-7">
         {(["Gesture", "Posture", "Voice", "Eye"] as const).map((tab) => (
@@ -112,7 +154,9 @@ export function UserGuidePage() {
             key={tab}
             onClick={() => setSubTab(tab)}
             className={`px-4 py-1.5 rounded-full text-xs border transition ${
-              subTab === tab ? "bg-stone-900 text-white border-stone-900 font-medium" : "bg-white text-stone-600 border-stone-200/90 hover:border-stone-400"
+              subTab === tab
+                ? "bg-stone-900 text-white border-stone-900 font-medium"
+                : "bg-white text-stone-600 border-stone-200/90 hover:border-stone-400"
             }`}
           >
             {tab}
@@ -270,9 +314,6 @@ export function UserGuidePage() {
         </div>
       )}
 
-      {/* ==========================================
-          Voice 视图 (补全了原本缺失的 UI)
-          ========================================== */}
       {subTab === "Voice" && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           <div className="md:col-span-7 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm">
@@ -289,7 +330,9 @@ export function UserGuidePage() {
                       setVoiceSimLog(`Recognised: "${item.cmd}" — earcon played`);
                     }}
                     className={`px-4 py-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
-                      isSelected ? "border-stone-900 bg-stone-50/70 shadow-sm" : "border-transparent hover:bg-stone-100/60"
+                      isSelected
+                        ? "border-stone-900 bg-stone-50/70 shadow-sm"
+                        : "border-transparent hover:bg-stone-100/60"
                     }`}
                   >
                     <div>
@@ -305,7 +348,9 @@ export function UserGuidePage() {
 
           <div className="md:col-span-5 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm flex flex-col justify-between">
             <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">COMMAND ACTION</div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">
+                COMMAND ACTION
+              </div>
               <div className="font-serif text-2xl text-stone-900 mb-2">
                 {voiceItems[selectedVoiceIdx]?.previewTitle}
               </div>
@@ -346,9 +391,9 @@ export function UserGuidePage() {
         </div>
       )}
 
+      {/* Eye 视图渲染 (新增) */}
       {subTab === "Eye" && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          {/* 左侧列表 */}
           <div className="md:col-span-7 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm">
             <h3 className="text-xs font-serif font-medium text-stone-800 mb-4">Gaze Features & Settings</h3>
             <div className="space-y-2.5">
@@ -377,7 +422,6 @@ export function UserGuidePage() {
             </div>
           </div>
 
-          {/* 右侧详情 */}
           <div className="md:col-span-5 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm flex flex-col justify-between">
             <div>
               <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">
