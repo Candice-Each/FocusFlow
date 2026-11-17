@@ -1,9 +1,32 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { playSubtleEarcon } from "@/lib/focusflow/earcon";
+import {
+  DEFAULT_VOICE_CONFIG,
+  GROUP_ORDER,
+  MODE_SHORTCUTS,
+  VOICE_CATALOG,
+  filterCatalog,
+  sentenceCase,
+  type CommandGroup,
+  type CommandId,
+} from "@/lib/voice";
 
 type GuideTab = "Gesture" | "Posture" | "Voice" | "Eye";
+
+/**
+ * Display spelling of the primary wake word. `DEFAULT_VOICE_CONFIG` keeps the
+ * lowercase form the matcher compares against, so the capitalisation lives here.
+ */
+const WAKE_WORD_DISPLAY = "Hey Focus";
+
+/** Commands that take a spoken count have no fixed phrase list. */
+function dictationExamples(id: string): string[] {
+  if (id === "SKIP_LINES_FORWARD") return ["skip three lines", "skip 5 lines ahead"];
+  if (id === "SKIP_LINES_BACK") return ["skip two lines back", "back 3 lines"];
+  return [];
+}
 
 export function UserGuidePage() {
   const [subTab, setSubTab] = useState<GuideTab>("Gesture");
@@ -19,8 +42,16 @@ export function UserGuidePage() {
 
 
   // Voice subpage
-  const [selectedVoiceIdx, setSelectedVoiceIdx] = useState(0);
-  const [voiceSimLog, setVoiceSimLog] = useState("Ready — click Test Command to hear earcon confirmation");
+  const [voiceQuery, setVoiceQuery] = useState("");
+  const [voiceGroup, setVoiceGroup] = useState<CommandGroup | "All">("All");
+  const [selectedCmdId, setSelectedCmdId] = useState<CommandId>("NEXT_PAGE");
+
+  const visibleCommands = useMemo(
+    () => filterCatalog(voiceQuery, voiceGroup),
+    [voiceQuery, voiceGroup]
+  );
+  const selectedCmd =
+    VOICE_CATALOG.find((entry) => entry.id === selectedCmdId) ?? VOICE_CATALOG[0];
 
   const [selectedEyeIdx, setSelectedEyeIdx] = useState(0);
   const [eyeSimLog, setEyeSimLog] = useState("Select a feature to explore.");
@@ -36,33 +67,6 @@ export function UserGuidePage() {
       detail: "Pinch thumb and index finger to fine-tune the reading column margin." },
     { name: "Open palm", desc: "Pause or summon menu", badgeText: "Open Palm",
       detail: "Hold an open palm steady inside the zone to pause timing or open quick actions." },
-  ];
-
-  const voiceItems = [
-    { cmd: "Next line", desc: "Move the active sentence down one row",
-      previewTitle: "Move to the next line",
-      previewBody: "Says \"hey focus next line\". Only a finished utterance is acted on; a half sentence is ignored so the page never jumps on a slip of the tongue." },
-    { cmd: "Next page", desc: "Turn to the next page",
-      previewTitle: "Turn the page forward",
-      previewBody: "Blocked at the last page with a spoken-style prompt instead of silently doing nothing." },
-    { cmd: "Previous chapter", desc: "Return to the previous chapter",
-      previewTitle: "Return to previous chapter",
-      previewBody: "Switches immediately to the preceding chapter without touching the mouse or keyboard." },
-    { cmd: "Open menu", desc: "Summon the sentence action bar",
-      previewTitle: "Open the quick action bar",
-      previewBody: "Replaces hunting for the floating menu: the sentence currently held by your gaze gets its action bar." },
-    { cmd: "Read this line", desc: "Start TTS narration from the active line",
-      previewTitle: "Start TTS narration",
-      previewBody: "Initiates calm spoken narration from the active sentence for multisensory reinforcement." },
-    { cmd: "Save this line", desc: "Bookmark the active sentence",
-      previewTitle: "Choose a sentence",
-      previewBody: "Anchors a bookmark on the sentence currently held by your gaze and logs the timestamp." },
-    { cmd: "Font bigger", desc: "Increase the reading font size",
-      previewTitle: "Increase text size",
-      previewBody: "Font size steps by two points per command so a single mishearing does not blow up the page." },
-    { cmd: "Stop dictation", desc: "End a Notes-mode voice note",
-      previewTitle: "Finish the voice note",
-      previewBody: "In Notes mode every final is appended to the note list; this phrase closes the note." },
   ];
 
   const eyeItems = [
@@ -315,76 +319,158 @@ export function UserGuidePage() {
       )}
 
       {subTab === "Voice" && (
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-          <div className="md:col-span-7 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm">
-            <h3 className="text-xs font-serif font-medium text-stone-800 mb-4">Verb + Object</h3>
-            <div className="space-y-2.5">
-              {voiceItems.map((item, idx) => {
-                const isSelected = selectedVoiceIdx === idx;
-                return (
-                  <div
-                    key={item.cmd}
-                    onClick={() => {
-                      setSelectedVoiceIdx(idx);
-                      playSubtleEarcon(659.25, 140);
-                      setVoiceSimLog(`Recognised: "${item.cmd}" — earcon played`);
-                    }}
-                    className={`px-4 py-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
-                      isSelected
-                        ? "border-stone-900 bg-stone-50/70 shadow-sm"
-                        : "border-transparent hover:bg-stone-100/60"
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch md:h-[32rem] min-h-0">
+          {/* ── left column: wake word · command list ─────────────────── */}
+          <div className="md:col-span-7 flex flex-col gap-4 min-h-0">
+            <div className="bg-white rounded-2xl border border-stone-200/90 px-5 py-4 shadow-sm shrink-0">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">
+                    Wake word
+                  </div>
+                  <p className="text-[11px] text-stone-500">
+                    Also accepts {DEFAULT_VOICE_CONFIG.wakeWords.slice(1).join(" / ")}.
+                  </p>
+                </div>
+                <span className="self-center font-serif text-2xl leading-none text-stone-900 whitespace-nowrap mr-1">
+                  &ldquo;&nbsp;{WAKE_WORD_DISPLAY}&nbsp;&rdquo;
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-sm flex flex-col min-h-0 flex-1">
+              <div className="flex items-center justify-between gap-3 mb-3">
+                <h3 className="text-xs font-serif font-medium text-stone-800 whitespace-nowrap">
+                  Read mode - commands
+                </h3>
+                <div className="flex items-center gap-1 h-[21px] px-2 rounded-full border border-stone-200 focus-within:border-stone-400 transition shrink-0">
+                  <svg
+                    aria-hidden="true"
+                    viewBox="0 0 16 16"
+                    className="w-3 h-3 shrink-0 stroke-stone-400 fill-none"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                  >
+                    <circle cx="7" cy="7" r="4.5" />
+                    <line x1="10.5" y1="10.5" x2="14" y2="14" />
+                  </svg>
+                  <input
+                    type="text"
+                    value={voiceQuery}
+                    onChange={(e) => setVoiceQuery(e.target.value)}
+                    aria-label="Search commands"
+                    className="w-40 bg-transparent text-[10px] leading-[21px] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-nowrap gap-1 mb-3 overflow-x-auto">
+                {(["All", ...GROUP_ORDER] as const).map((g) => (
+                  <button
+                    type="button"
+                    key={g}
+                    onClick={() => setVoiceGroup(g)}
+                    className={`px-2 py-0.5 rounded-full text-[10px] border whitespace-nowrap shrink-0 transition ${
+                      voiceGroup === g
+                        ? "bg-stone-900 text-white border-stone-900"
+                        : "border-stone-200 text-stone-500 hover:border-stone-400"
                     }`}
                   >
-                    <div>
-                      <div className="text-xs font-semibold text-stone-900">{item.cmd}</div>
-                      <div className="text-[11px] text-stone-500 mt-0.5">{item.desc}</div>
-                    </div>
-                    <span className="text-xs font-mono text-stone-400">{idx + 1}</span>
+                    {g}
+                  </button>
+                ))}
+              </div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-1">
+                {visibleCommands.length === 0 ? (
+                  <div className="text-[11px] text-stone-500 px-1 py-2">
+                    No command matches &ldquo;{voiceQuery}&rdquo;.
                   </div>
-                );
-              })}
+                ) : (
+                  visibleCommands.map((entry) => {
+                    const isSelected = entry.id === selectedCmdId;
+                    return (
+                      <div
+                        key={entry.id}
+                        onClick={() => {
+                          setSelectedCmdId(entry.id);
+                          playSubtleEarcon(659.25, 120);
+                        }}
+                        className={`px-3 py-2 rounded-xl border cursor-pointer transition ${
+                          isSelected
+                            ? "border-stone-900 bg-stone-50/70"
+                            : "border-transparent hover:bg-stone-100/60"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-xs font-semibold text-stone-900">
+                            {entry.label}
+                          </span>
+                          <span className="text-[10px] font-mono text-stone-400 shrink-0">
+                            {entry.id}
+                          </span>
+                        </div>
+                        <div className="text-[11px] text-stone-500 mt-0.5">
+                          {entry.description}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="md:col-span-5 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm flex flex-col justify-between">
-            <div>
-              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">
-                COMMAND ACTION
-              </div>
-              <div className="font-serif text-2xl text-stone-900 mb-2">
-                {voiceItems[selectedVoiceIdx]?.previewTitle}
-              </div>
-              <p className="text-xs text-stone-500 leading-relaxed mb-6">
-                {voiceItems[selectedVoiceIdx]?.previewBody}
+          {/* ── right column: notes mode · selected ───────────────────── */}
+          <div className="md:col-span-5 flex flex-col gap-4 min-h-0">
+            <div className="bg-white rounded-2xl border border-stone-200/90 p-4 shadow-sm shrink-0">
+              <h3 className="text-xs font-serif font-medium text-stone-800 mb-1.5">Notes mode</h3>
+              <p className="text-[11px] text-stone-500 leading-relaxed mb-3">
+                In Notes mode everything except mode switches is recorded as a note.
               </p>
+              <div className="flex gap-1.5">
+                {MODE_SHORTCUTS.map((shortcut) => {
+                  const active = selectedCmdId === shortcut.commandId;
+                  return (
+                    <button
+                      type="button"
+                      key={shortcut.commandId}
+                      onClick={() => {
+                        setVoiceGroup("Mode");
+                        setSelectedCmdId(shortcut.commandId);
+                        playSubtleEarcon(523.25, 120);
+                      }}
+                      className={`px-3 py-1 rounded-full text-[11px] border transition ${
+                        active
+                          ? "bg-stone-900 text-white border-stone-900"
+                          : "bg-white text-stone-600 border-stone-200 hover:border-stone-400"
+                      }`}
+                    >
+                      {shortcut.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="p-3 rounded-xl bg-[#f5f3ef] border border-stone-200/80 text-xs font-mono text-stone-700">
-                {voiceSimLog}
+            <div className="bg-white rounded-2xl border border-stone-200/90 p-5 shadow-sm flex flex-col min-h-0 flex-1">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">
+                SELECTED
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const cmd = voiceItems[selectedVoiceIdx]?.cmd;
-                    playSubtleEarcon(659.25, 150);
-                    setVoiceSimLog(`Success: "${cmd}" executed`);
-                  }}
-                  className="px-4 py-1.5 rounded-full bg-stone-900 text-white text-xs font-medium hover:bg-stone-800 transition"
-                >
-                  Test Command
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    playSubtleEarcon(220, 180);
-                    setVoiceSimLog('Unrecognized: "uh maybe flip..." (Logged)');
-                  }}
-                  className="px-3.5 py-1.5 rounded-full border border-stone-300 text-stone-700 text-xs hover:bg-stone-100 transition"
-                >
-                  Simulate Half-Sentence
-                </button>
+              <div className="font-serif text-2xl text-stone-900 mb-3">{selectedCmd.label}</div>
+
+              <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-2">
+                {(selectedCmd.phrases.length === 0
+                  ? dictationExamples(selectedCmd.id)
+                  : selectedCmd.phrases
+                ).map((phrase) => (
+                  <div
+                    key={phrase}
+                    className="px-3 py-1.5 rounded-xl bg-[#f5f3ef] border border-stone-200/70 text-[11px] text-stone-800"
+                  >
+                    {sentenceCase(phrase)}
+                  </div>
+                ))}
               </div>
             </div>
           </div>

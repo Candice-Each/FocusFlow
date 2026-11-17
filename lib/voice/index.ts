@@ -10,6 +10,17 @@ export {
 export { VoiceAssistant, type VoiceAssistantOptions } from "./voice-assistant";
 export { parseIntent, parseTranscript } from "./intent-parser";
 export {
+  CATALOG_META,
+  GROUP_ORDER,
+  MODE_SHORTCUTS,
+  VOICE_CATALOG,
+  filterCatalog,
+  sentenceCase,
+  type CommandCatalogEntry,
+  type CommandGroup,
+  type CommandMeta,
+} from "./catalog";
+export {
   canonicalizeCommand,
   normalizeCommandText,
   cleanNoteText,
