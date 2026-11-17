@@ -41,22 +41,49 @@ interface SensingCardProps {
   dragHandle: React.ReactNode;
   onStartDrag: (e: React.PointerEvent) => void;
   style?: React.CSSProperties;
-
-  // 接收左下角拉条的开关状态
   showBottomLeftBar: boolean;
   setShowBottomLeftBar: React.Dispatch<React.SetStateAction<boolean>>;
 }
 
 export function SensingCard(props: SensingCardProps) {
   const {
-    trackingQuality, cameraStatus, fps, continuousFaceState, multimodalTriggerState, faceBaseline,
-    showGazeCursor, setShowGazeCursor, winVideo, setWinVideo, winMesh, setWinMesh,
-    showPageHeatmap, setShowPageHeatmap, setWinHeatmap, faceAssist, setFaceAssist,
-    faceBehaviorEnabled, setFaceBehaviorEnabled, faceAnalysisPhase, faceCandidate, readingDifficultySignal,
-    faceBaselineCaptureStatus, faceBaselineCaptureProgress, noCameraMode, setNoCameraMode,
-    modelReady, startCalibration, isCalibrated, calibratePersonalFaceBaseline,
-    unifiedSurfaceClass, unifiedSubtleBoxClass, dragHandle, onStartDrag, style,
-    showBottomLeftBar, setShowBottomLeftBar,
+    trackingQuality,
+    cameraStatus,
+    fps,
+    continuousFaceState,
+    multimodalTriggerState,
+    faceBaseline,
+    showGazeCursor,
+    setShowGazeCursor,
+    winVideo,
+    setWinVideo,
+    winMesh,
+    setWinMesh,
+    showPageHeatmap,
+    setShowPageHeatmap,
+    setWinHeatmap,
+    faceAssist,
+    setFaceAssist,
+    faceBehaviorEnabled,
+    setFaceBehaviorEnabled,
+    faceAnalysisPhase,
+    faceCandidate,
+    readingDifficultySignal,
+    faceBaselineCaptureStatus,
+    faceBaselineCaptureProgress,
+    noCameraMode,
+    setNoCameraMode,
+    modelReady,
+    startCalibration,
+    isCalibrated,
+    calibratePersonalFaceBaseline,
+    unifiedSurfaceClass,
+    unifiedSubtleBoxClass,
+    dragHandle,
+    onStartDrag,
+    style,
+    showBottomLeftBar,
+    setShowBottomLeftBar,
   } = props;
 
   return (
@@ -68,7 +95,15 @@ export function SensingCard(props: SensingCardProps) {
       <div className="flex items-center justify-between whitespace-nowrap">
         <h3 className="text-base font-serif font-medium">Sensing & Face</h3>
         <div className="flex items-center gap-1.5">
-          <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${trackingQuality === "Good" ? "bg-emerald-500/15 text-emerald-700 border-emerald-500/30" : trackingQuality === "Limited" ? "bg-amber-500/15 text-amber-700 border-amber-500/30" : "bg-stone-500/15 text-stone-500 border-stone-400/30"}`}>
+          <span
+            className={`text-[10px] px-2.5 py-0.5 rounded-full font-medium border ${
+              trackingQuality === "Good"
+                ? "bg-emerald-500/15 text-emerald-700 border-emerald-500/30"
+                : trackingQuality === "Limited"
+                ? "bg-amber-500/15 text-amber-700 border-amber-500/30"
+                : "bg-stone-500/15 text-stone-500 border-stone-400/30"
+            }`}
+          >
             Quality: {trackingQuality}
           </span>
           {dragHandle}
@@ -78,7 +113,9 @@ export function SensingCard(props: SensingCardProps) {
       <div className={`text-[11px] rounded-xl p-2.5 border space-y-1 tabular-nums ${unifiedSubtleBoxClass}`}>
         <div className="flex justify-between whitespace-nowrap">
           <span className="opacity-75">Camera Status:</span>
-          <span className="font-medium">{cameraStatus === "Active" ? `Active (${fps} FPS)` : cameraStatus}</span>
+          <span className="font-medium">
+            {cameraStatus === "Active" ? `Active (${fps} FPS)` : cameraStatus}
+          </span>
         </div>
         <div className="flex justify-between whitespace-nowrap">
           <span className="opacity-75">Face Dynamics:</span>
@@ -91,9 +128,22 @@ export function SensingCard(props: SensingCardProps) {
         {faceBaseline && (
           <div className="flex justify-between text-[10px] opacity-65 pt-0.5 border-t border-stone-300/40 whitespace-nowrap">
             <span>Personal Baseline:</span>
-            <span>Y{faceBaseline.yaw}° / P{faceBaseline.pitch}° / R{faceBaseline.roll}°</span>
+            <span>
+              Y{faceBaseline.yaw}° / P{faceBaseline.pitch}° / R{faceBaseline.roll}°
+            </span>
           </div>
         )}
+        <div className="flex justify-between text-[10px] opacity-65 pt-0.5 border-t border-stone-300/40 whitespace-nowrap">
+          <span>Face Support:</span>
+          <span>{faceAnalysisPhase}</span>
+        </div>
+        <div className="flex justify-between text-[10px] opacity-65 whitespace-nowrap">
+          <span>Understanding Gate:</span>
+          <span>
+            Face {faceCandidate ? "Yes" : "No"} · Reading{" "}
+            {readingDifficultySignal ? "Yes" : "No"}
+          </span>
+        </div>
       </div>
 
       <div className="flex items-center justify-between text-xs whitespace-nowrap">
@@ -101,24 +151,39 @@ export function SensingCard(props: SensingCardProps) {
         <ToggleSwitch checked={showGazeCursor} onChange={() => setShowGazeCursor((v) => !v)} />
       </div>
 
-      {/* 将左下角拉条和相机显示控制合并到一个单独的框中 */}
       <div className={`rounded-xl p-3 border space-y-2 mt-2 ${unifiedSubtleBoxClass}`}>
         <div className="text-[11px] font-medium opacity-75 mb-1">Display Controls</div>
         <div className="flex items-center justify-between text-xs whitespace-nowrap">
           <span>Bottom-Left Difficulty Bar</span>
-          <ToggleSwitch checked={showBottomLeftBar} onChange={() => setShowBottomLeftBar((v) => !v)} />
+          <ToggleSwitch
+            checked={showBottomLeftBar}
+            onChange={() => setShowBottomLeftBar((v) => !v)}
+          />
         </div>
         <div className="flex items-center justify-between text-xs whitespace-nowrap">
           <span>Camera Live Window</span>
-          <ToggleSwitch checked={winVideo.visible} onChange={() => setWinVideo((p) => ({ ...p, visible: !p.visible }))} />
+          <ToggleSwitch
+            checked={winVideo.visible}
+            onChange={() => setWinVideo((p) => ({ ...p, visible: !p.visible }))}
+          />
         </div>
         <div className="flex items-center justify-between text-xs whitespace-nowrap">
           <span>Topology Mesh Window</span>
-          <ToggleSwitch checked={winMesh.visible} onChange={() => setWinMesh((p) => ({ ...p, visible: !p.visible }))} />
+          <ToggleSwitch
+            checked={winMesh.visible}
+            onChange={() => setWinMesh((p) => ({ ...p, visible: !p.visible }))}
+          />
         </div>
         <div className="flex items-center justify-between text-xs whitespace-nowrap">
           <span>Gaze Heatmap Overlay</span>
-          <ToggleSwitch checked={showPageHeatmap} onChange={() => { const next = !showPageHeatmap; setShowPageHeatmap(next); setWinHeatmap((p) => ({ ...p, visible: next })); }} />
+          <ToggleSwitch
+            checked={showPageHeatmap}
+            onChange={() => {
+              const next = !showPageHeatmap;
+              setShowPageHeatmap(next);
+              setWinHeatmap((p) => ({ ...p, visible: next }));
+            }}
+          />
         </div>
       </div>
 
@@ -129,7 +194,10 @@ export function SensingCard(props: SensingCardProps) {
 
       <div className="flex items-center justify-between text-xs whitespace-nowrap">
         <span>Facial Behaviour Support</span>
-        <ToggleSwitch checked={faceBehaviorEnabled} onChange={() => setFaceBehaviorEnabled((v) => !v)} />
+        <ToggleSwitch
+          checked={faceBehaviorEnabled}
+          onChange={() => setFaceBehaviorEnabled((v) => !v)}
+        />
       </div>
 
       <div className="flex items-center justify-between text-xs whitespace-nowrap">
@@ -138,11 +206,25 @@ export function SensingCard(props: SensingCardProps) {
       </div>
 
       <div className="pt-2 border-t border-stone-300/40 grid grid-cols-2 gap-2">
-        <button type="button" disabled={!modelReady || noCameraMode || faceBaselineCaptureStatus === "collecting"} onClick={startCalibration} className="py-1.5 px-2 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white text-xs font-medium transition whitespace-nowrap">
+        <button
+          type="button"
+          disabled={!modelReady || noCameraMode || faceBaselineCaptureStatus === "collecting"}
+          onClick={startCalibration}
+          className="py-1.5 px-2 rounded-xl bg-stone-900 hover:bg-stone-800 disabled:opacity-40 text-white text-xs font-medium transition whitespace-nowrap"
+        >
           {isCalibrated ? "Recalibrate 9-Pt" : "9-Pt Calibration"}
         </button>
-        <button type="button" disabled={!modelReady || noCameraMode || faceBaselineCaptureStatus === "collecting"} onClick={calibratePersonalFaceBaseline} className={`py-1.5 px-2 rounded-xl border text-xs font-medium disabled:opacity-40 transition whitespace-nowrap ${unifiedSubtleBoxClass}`}>
-          {faceBaselineCaptureStatus === "collecting" ? `Recording ${faceBaselineCaptureProgress}%` : faceBaseline ? "Re-record Baseline" : "Face Baseline"}
+        <button
+          type="button"
+          disabled={!modelReady || noCameraMode || faceBaselineCaptureStatus === "collecting"}
+          onClick={calibratePersonalFaceBaseline}
+          className={`py-1.5 px-2 rounded-xl border text-xs font-medium disabled:opacity-40 transition whitespace-nowrap ${unifiedSubtleBoxClass}`}
+        >
+          {faceBaselineCaptureStatus === "collecting"
+            ? `Recording ${faceBaselineCaptureProgress}%`
+            : faceBaseline
+            ? "Re-record Baseline"
+            : "Face Baseline"}
         </button>
       </div>
     </div>

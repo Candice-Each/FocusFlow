@@ -37,7 +37,7 @@ export function TopWorkspaceNav() {
 
   const handleLogout = () => {
     writeUserName(null);
-    localStorage.clear();
+    setUserName(null);
     setMenuOpen(false);
     router.push("/login");
   };

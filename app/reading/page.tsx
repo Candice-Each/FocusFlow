@@ -41,7 +41,7 @@ export default function SingleBookReadingInterface() {
   const rowsContainerRef = useRef<HTMLDivElement | null>(null);
   const meshCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const router = useRouter();
-  const [backToShelfVisible, setBackToShelfVisible] = useState(false);
+
   const [noCameraMode, setNoCameraMode] = useState(false);
   const [modelReady, setModelReady] = useState(false);
   const [cameraStatus, setCameraStatus] = useState<CameraStatus>("Initializing");
@@ -149,8 +149,7 @@ export default function SingleBookReadingInterface() {
       0
     );
     const bookId = params.get("book");
-    if (!bookId) return;
-    setBackToShelfVisible(true);
+    if (!bookId) return () => window.clearTimeout(demoTimer);
     const books = readBooks();
     const book = books.find((b) => b.id === bookId);
     if (book?.content) {
@@ -297,7 +296,7 @@ export default function SingleBookReadingInterface() {
   }, [personalFaceBaseline]);
 
   useEffect(() => {
-    let nextState = "Idle";
+    let nextState: string | null = null;
     if (!faceBehaviorEnabled || noCameraMode) nextState = "Face Support Off";
     else if (facePrompt) nextState = `Prompt: ${facePrompt.kind}`;
     else if (faceObservation.cognitiveStrainCandidate && readingDifficultySignal)
@@ -308,6 +307,7 @@ export default function SingleBookReadingInterface() {
       nextState = "Analysis Paused: Limited";
     else if (faceObservation.phase === "tracking-unavailable")
       nextState = "Analysis Paused: Unavailable";
+    if (!nextState) return;
     const timer = window.setTimeout(
       () => setMultimodalTriggerState(nextState),
       0
@@ -804,7 +804,7 @@ export default function SingleBookReadingInterface() {
 
       <TopBar
         leftSidebarOpen={leftSidebarOpen} setLeftSidebarOpen={setLeftSidebarOpen}
-        onBackToHome={() => router.push("/")} // 修复：将返回逻辑改为跳回封面主页
+        onBackToHome={() => router.push("/")}
         rightSidebarOpen={rightSidebarOpen} setRightSidebarOpen={setRightSidebarOpen}
         readingStats={readingStats} readingSeconds={readingSeconds} isOffScreenPaused={isOffScreenPaused}
         clauseMenuOpen={clauseMenuOpen} isCalibrated={isCalibrated} noCameraMode={noCameraMode}
@@ -906,7 +906,6 @@ export default function SingleBookReadingInterface() {
         unifiedSurfaceClass={unifiedSurfaceClass} unifiedSubtleBoxClass={unifiedSubtleBoxClass}
       />
 
-      {/* 保留的 FaceAssistLayer 冲突清理 */}
       <FaceAssistLayer
         prompt={facePrompt}
         observation={faceObservation}

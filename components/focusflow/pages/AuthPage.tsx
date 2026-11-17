@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useTransition } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { FocusFlowBrandMark } from "../FocusFlowBrandMark";
 import { writeUserName } from "@/lib/focusflow/store";
@@ -20,6 +20,12 @@ export function AuthPage({ mode }: AuthPageProps) {
   const [privacyChecked, setPrivacyChecked] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  useEffect(() => {
+    router.prefetch("/shelf");
+    router.prefetch("/");
+    router.prefetch(mode === "login" ? "/signup" : "/login");
+  }, [router, mode]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isSubmitting || isPending) return;
@@ -35,22 +41,24 @@ export function AuthPage({ mode }: AuthPageProps) {
     setErrorMsg(null);
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const displayUser = mode === "signup" ? name.trim() : email.split("@")[0] || "Reader";
-      writeUserName(displayUser);
+    const displayUser = mode === "signup" ? name.trim() : email.split("@")[0] || "Reader";
+    writeUserName(displayUser);
 
-      startTransition(() => {
-        router.push("/shelf");
-      });
-      setIsSubmitting(false);
-    }, 300);
+    startTransition(() => {
+      router.push("/shelf");
+    });
   };
 
   const goOtherMode = () => {
     if (isSubmitting || isPending) return;
     setErrorMsg(null);
-    router.push(mode === "login" ? "/signup" : "/login");
+    setIsSubmitting(false);
+    startTransition(() => {
+      router.push(mode === "login" ? "/signup" : "/login");
+    });
   };
+
+  const busy = isSubmitting || isPending;
 
   return (
     <div className="min-h-screen w-full bg-[#f8f7f4] text-stone-900 flex flex-col justify-between p-8 md:p-14 select-none">
@@ -76,7 +84,7 @@ export function AuthPage({ mode }: AuthPageProps) {
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                disabled={isSubmitting || isPending}
+                disabled={busy}
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 transition disabled:opacity-50"
                 placeholder="Your display name"
               />
@@ -89,7 +97,7 @@ export function AuthPage({ mode }: AuthPageProps) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              disabled={isSubmitting || isPending}
+              disabled={busy}
               className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 transition disabled:opacity-50"
               placeholder="you@example.com"
             />
@@ -101,22 +109,21 @@ export function AuthPage({ mode }: AuthPageProps) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              disabled={isSubmitting || isPending}
+              disabled={busy}
               className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm text-stone-900 placeholder-stone-400 focus:outline-none focus:ring-2 focus:ring-stone-900/20 focus:border-stone-900 transition disabled:opacity-50"
               placeholder="••••••••"
             />
           </div>
 
-          {/* 复选框区域：整个框（包括内边距）均可点击 */}
           <label className="flex items-start gap-3 p-3 -mx-3 bg-stone-50/50 hover:bg-stone-100/80 rounded-xl cursor-pointer transition-colors border border-transparent hover:border-stone-200">
             <input
               type="checkbox"
               checked={privacyChecked}
               onChange={(e) => setPrivacyChecked(e.target.checked)}
-              disabled={isSubmitting || isPending}
-              className="mt-0.5 w-5 h-5 accent-stone-900 rounded cursor-pointer disabled:opacity-50 shrink-0 pointer-events-none"
+              disabled={busy}
+              className="mt-0.5 w-5 h-5 accent-stone-900 rounded cursor-pointer disabled:opacity-50 shrink-0"
             />
-            <span className="text-xs text-stone-500 leading-relaxed select-none pointer-events-none">
+            <span className="text-xs text-stone-500 leading-relaxed select-none">
               I understand the privacy note: The camera turns on only when I ask, and raw video is not stored.
             </span>
           </label>
@@ -128,14 +135,13 @@ export function AuthPage({ mode }: AuthPageProps) {
           )}
 
           <div className="pt-2">
-            {/* 主提交按钮：整行 w-full，并确保内部所有区域响应点击 */}
             <button
               type="submit"
-              disabled={isSubmitting || isPending}
+              disabled={busy}
               className="w-full py-3.5 rounded-xl bg-stone-900 hover:bg-stone-800 text-white text-sm font-semibold transition shadow-md disabled:opacity-50 flex items-center justify-center cursor-pointer"
             >
               <span className="pointer-events-none">
-                {isSubmitting || isPending ? "Processing..." : (mode === "login" ? "Log in" : "Create and enter")}
+                {busy ? "Processing..." : mode === "login" ? "Log in" : "Create and enter"}
               </span>
             </button>
           </div>
@@ -145,7 +151,7 @@ export function AuthPage({ mode }: AuthPageProps) {
           <button
             type="button"
             onClick={goOtherMode}
-            disabled={isSubmitting || isPending}
+            disabled={busy}
             className="w-full py-3.5 rounded-xl border border-stone-200 text-stone-600 text-sm font-medium hover:bg-stone-50 hover:text-stone-900 transition-colors disabled:opacity-50 flex items-center justify-center cursor-pointer"
           >
             <span className="pointer-events-none">
