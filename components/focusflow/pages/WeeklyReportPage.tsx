@@ -1,10 +1,28 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 
 const SPEED_SESSIONS = [142, 156, 151, 168, 174, 179, 186];
+const CONTINUOUS_READING_SESSIONS = [
+  { label: "Mon", minutes: 18 },
+  { label: "Tue", minutes: 22 },
+  { label: "Wed", minutes: 20 },
+  { label: "Thu", minutes: 26 },
+  { label: "Fri", minutes: 24 },
+  { label: "Sat", minutes: 29 },
+  { label: "Sun", minutes: 32 },
+];
 
 export function WeeklyReportPage() {
+  const [selectedContinuousIdx, setSelectedContinuousIdx] = useState(
+    CONTINUOUS_READING_SESSIONS.length - 1
+  );
+  const selectedContinuousSession =
+    CONTINUOUS_READING_SESSIONS[selectedContinuousIdx];
+  const longestContinuousMinutes = Math.max(
+    ...CONTINUOUS_READING_SESSIONS.map((session) => session.minutes)
+  );
+
   return (
     <div className="max-w-5xl mx-auto px-10 py-8 select-none">
       <div className="text-[10px] font-mono uppercase tracking-[0.2em] text-stone-400 mb-1">
@@ -13,7 +31,8 @@ export function WeeklyReportPage() {
       <h1 className="font-serif text-4xl text-stone-900 mb-2">This week</h1>
       <p className="text-xs text-stone-500 max-w-xl leading-relaxed mb-8">
         Ergonomic counts come from posture prompts. Gesture counts come from the recognition badge.
-        They describe your habit only; they are not a medical result.
+        Continuous reading excludes away, calibration, and break time. These measures describe your
+        habits only; they are not a medical result.
       </p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -94,27 +113,72 @@ export function WeeklyReportPage() {
 
         <div className="bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm flex flex-col justify-between">
           <div>
-            <h3 className="text-sm font-semibold text-stone-900 mb-5">Skips and returns</h3>
-            <div className="space-y-4">
-              {[
-                { label: "Skips", count: 12, pct: 58 },
-                { label: "Returns", count: 8, pct: 38 },
-              ].map((row) => (
-                <div key={row.label} className="flex items-center gap-4 text-xs">
-                  <span className="w-16 text-stone-600">{row.label}</span>
-                  <div className="flex-1 h-1.5 bg-stone-200 rounded-full overflow-hidden">
-                    <div style={{ width: `${row.pct}%` }} className="h-full bg-stone-900 rounded-full" />
-                  </div>
-                  <span className="w-8 text-right font-mono text-[11px] text-stone-500 tabular-nums">
-                    {row.count}
-                  </span>
-                </div>
+            <div className="flex items-center justify-between gap-4">
+              <h3 className="text-sm font-semibold text-stone-900">
+                Continuous reading
+              </h3>
+              <span className="rounded-full bg-stone-100 px-2.5 py-1 text-[10px] font-mono text-stone-500">
+                Session {selectedContinuousIdx + 1} · {selectedContinuousSession.label}
+              </span>
+            </div>
+            <div
+              className="font-serif text-4xl text-stone-900 my-1 tabular-nums"
+              aria-live="polite"
+            >
+              {selectedContinuousSession.minutes} min
+            </div>
+            <p className="text-[11px] text-stone-500 mb-4">
+              Selected uninterrupted active-reading period
+            </p>
+          </div>
+          <div>
+            <div
+              className="h-20 flex items-end gap-2.5 pt-2"
+              aria-label="Continuous reading sessions"
+            >
+              {CONTINUOUS_READING_SESSIONS.map((session, i) => {
+                const isSelected = selectedContinuousIdx === i;
+                const heightPct = Math.round((session.minutes / 35) * 100);
+                return (
+                  <button
+                    key={session.label}
+                    type="button"
+                    aria-pressed={isSelected}
+                    aria-label={`${session.label}, session ${i + 1}: ${session.minutes} continuous minutes`}
+                    onClick={() => setSelectedContinuousIdx(i)}
+                    className="group flex h-full flex-1 items-end justify-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-500 focus-visible:ring-offset-2"
+                  >
+                    <span
+                      aria-hidden="true"
+                      style={{ height: `${heightPct}%` }}
+                      className={`w-full rounded-sm transition-all ${
+                        isSelected
+                          ? "bg-stone-900 group-hover:bg-stone-800"
+                          : "bg-[#e7e5e4] group-hover:bg-stone-300"
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+            <div className="mt-2 grid grid-cols-7 gap-2.5 text-center text-[10px] text-stone-400">
+              {CONTINUOUS_READING_SESSIONS.map((session, i) => (
+                <span
+                  key={session.label}
+                  className={
+                    selectedContinuousIdx === i
+                      ? "font-semibold text-stone-900"
+                      : undefined
+                  }
+                >
+                  {session.label}
+                </span>
               ))}
             </div>
+            <p className="mt-3 text-[10px] text-stone-400">
+              Longest this week: {longestContinuousMinutes} min · Select a bar to compare sessions.
+            </p>
           </div>
-          <p className="text-[11px] text-stone-500 mt-6">
-            A return is part of careful reading and is not treated as an error.
-          </p>
         </div>
       </div>
     </div>

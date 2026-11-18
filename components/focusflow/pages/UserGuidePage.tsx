@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { playSubtleEarcon } from "@/lib/focusflow/earcon";
 
-type GuideTab = "Gesture" | "Posture" | "Voice" | "Eye";
+type GuideTab = "Gesture" | "Posture" | "Face" | "Voice" | "Eye";
 
 export function UserGuidePage() {
   const [subTab, setSubTab] = useState<GuideTab>("Gesture");
@@ -17,6 +17,8 @@ export function UserGuidePage() {
   const [activePostureType, setActivePostureType] = useState<"Forward" | "Tilt" | "Too close">("Forward");
   const [edgeCueActive, setEdgeCueActive] = useState(false);
 
+  // Face-assistance subpage
+  const [selectedFaceIdx, setSelectedFaceIdx] = useState(0);
 
   // Voice subpage
   const [selectedVoiceIdx, setSelectedVoiceIdx] = useState(0);
@@ -108,6 +110,33 @@ export function UserGuidePage() {
     }
   ];
 
+  const faceItems = [
+    {
+      name: "Personal baseline",
+      desc: "Record five seconds of natural reading",
+      detail:
+        "FocusFlow compares sustained changes with your own neutral reading baseline instead of applying one universal threshold to everyone.",
+    },
+    {
+      name: "Presence-aware pause",
+      desc: "Pause only after a sustained absence",
+      detail:
+        "A single missed frame is ignored. If you remain outside the camera view, reading time pauses and a welcome-back choice appears when you return.",
+    },
+    {
+      name: "Understanding assistance",
+      desc: "Combine facial and reading signals",
+      detail:
+        "A help prompt appears only when a sustained facial candidate coincides with a separate reading-difficulty signal. You can break down, translate, or inspect key terms.",
+    },
+    {
+      name: "Privacy and fallback",
+      desc: "Use local numerical features only",
+      detail:
+        "Raw video is not stored. When tracking confidence is too low, facial analysis pauses while the reading interface continues to work normally.",
+    },
+  ];
+
   const triggerPostureCorrectionDemo = () => {
     setEdgeCueActive(true);
     playSubtleEarcon(440, 220);
@@ -122,6 +151,10 @@ export function UserGuidePage() {
     Posture: {
       title: "Return to upright",
       subtitle: "Posture is checked in the background. When you lean in or tilt for too long, a soft edge cue asks you to sit back.",
+    },
+    Face: {
+      title: "How Face Assist responds",
+      subtitle: "Face Assist uses a personal baseline and sustained signals to offer optional support. It does not identify emotions or make a medical assessment.",
     },
     Voice: {
       title: "How to speak",
@@ -148,7 +181,7 @@ export function UserGuidePage() {
       </p>
 
       <div className="flex items-center gap-2 mb-7">
-        {(["Gesture", "Posture", "Voice", "Eye"] as const).map((tab) => (
+        {(["Gesture", "Posture", "Face", "Voice", "Eye"] as const).map((tab) => (
           <button
             type="button"
             key={tab}
@@ -310,6 +343,81 @@ export function UserGuidePage() {
                 ? `Showing soft peripheral cue for "${activePostureType}" posture...`
                 : "Click Play correction to preview the non-intrusive edge cue and earcon."}
             </span>
+          </div>
+        </div>
+      )}
+
+      {subTab === "Face" && (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-7 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm">
+            <h3 className="text-xs font-semibold text-stone-800 mb-4">
+              Face assistance features
+            </h3>
+            <div className="space-y-2.5">
+              {faceItems.map((item, idx) => {
+                const isSelected = selectedFaceIdx === idx;
+                return (
+                  <button
+                    type="button"
+                    key={item.name}
+                    onClick={() => setSelectedFaceIdx(idx)}
+                    className={`w-full px-4 py-3 rounded-xl border flex items-center justify-between text-left transition ${
+                      isSelected
+                        ? "border-stone-900 bg-stone-50/70 shadow-sm"
+                        : "border-transparent hover:bg-stone-100/60"
+                    }`}
+                  >
+                    <span>
+                      <span className="block text-xs font-semibold text-stone-900">
+                        {item.name}
+                      </span>
+                      <span className="block text-[11px] text-stone-500 mt-0.5">
+                        {item.desc}
+                      </span>
+                    </span>
+                    <span className="text-xs font-mono text-stone-400">
+                      {idx + 1}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="md:col-span-5 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm flex flex-col justify-between">
+            <div>
+              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-1">
+                CURRENT EXPLANATION
+              </div>
+              <div className="font-serif text-2xl text-stone-900 mb-2">
+                {faceItems[selectedFaceIdx].name}
+              </div>
+              <p className="text-xs text-stone-500 leading-relaxed">
+                {faceItems[selectedFaceIdx].detail}
+              </p>
+            </div>
+
+            <div className="mt-8 rounded-xl bg-[#f5f3ef] border border-stone-200/80 p-4">
+              <div className="text-[10px] font-mono uppercase tracking-wider text-stone-400 mb-3">
+                SUPPORT PATH
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-stone-700">
+                <span className="rounded-full bg-white border border-stone-200 px-3 py-1">
+                  Personal baseline
+                </span>
+                <span className="text-stone-400">→</span>
+                <span className="rounded-full bg-white border border-stone-200 px-3 py-1">
+                  Sustained change
+                </span>
+                <span className="text-stone-400">→</span>
+                <span className="rounded-full bg-stone-900 px-3 py-1 text-white">
+                  Optional prompt
+                </span>
+              </div>
+              <p className="mt-4 text-[11px] leading-relaxed text-stone-500">
+                Facial data is supporting evidence only; the user remains in control of every intervention.
+              </p>
+            </div>
           </div>
         </div>
       )}
