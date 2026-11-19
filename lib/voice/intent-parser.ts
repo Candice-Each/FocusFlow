@@ -1,7 +1,7 @@
 import { canonicalizeCommand } from "./normalize";
 import type { CommandId, ParsedCommand } from "./commands";
 
-interface Rule {
+export interface Rule {
   id: CommandId;
   /** Any of these canonical phrases matches. Longest / most specific first. */
   phrases: ReadonlyArray<string>;
@@ -9,7 +9,12 @@ interface Rule {
   match?: (canonical: string) => ParsedCommand | null;
 }
 
-const RULES: ReadonlyArray<Rule> = [
+/**
+ * The phrase table. Exported read-only so `catalog.ts` can derive the guide's
+ * vocabulary from the same data the parser matches against — the guide cannot
+ * advertise a phrase the parser rejects. Do not mutate; order is the contract.
+ */
+export const RULES: ReadonlyArray<Rule> = [
   // ── Mode switching (must come before generic dictation phrases) ──────────
   {
     id: "STOP_DICTATION",
