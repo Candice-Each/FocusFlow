@@ -28,6 +28,8 @@ interface Options {
   enabled: boolean;
   onPrev: () => void;
   onNext: () => void;
+  onHighlight: () => void;
+  onNote: () => void;
 }
 // ==========================================
 // MediaPipe models
@@ -48,6 +50,10 @@ const ZONE_HOLD_MS = 400;
 const REARM_MISSING_FRAMES = 5;
 // Inference interval: approximately 12 FPS.
 const DETECTION_INTERVAL = 65;
+// A steady index finger means highlight; index + middle means save a note.
+// Removing or relaxing the hand is required before another shortcut.
+const SHORTCUT_HOLD_MS = 550;
+const SHORTCUT_REARM_FRAMES = 5;
 // ==========================================
 // Main Hook
 // ==========================================
@@ -56,6 +62,8 @@ export function useGesturePosture({
   enabled,
   onPrev,
   onNext,
+  onHighlight,
+  onNote,
 }: Options) {
   const [status, setStatus] = useState(
     "Waiting for camera"
@@ -72,13 +80,17 @@ export function useGesturePosture({
   const callbackRef = useRef({
     onPrev,
     onNext,
+    onHighlight,
+    onNote,
   });
   useEffect(() => {
     callbackRef.current = {
       onPrev,
       onNext,
+      onHighlight,
+      onNote,
     };
-  }, [onPrev, onNext]);
+  }, [onPrev, onNext, onHighlight, onNote]);
   // ==========================================
   // Posture Calibration
   // ==========================================
@@ -109,6 +121,10 @@ export function useGesturePosture({
     let zoneStartTime = 0;
     let handMissing = 0;
     let armed = true;
+    let shortcutCandidate: "one" | "two" | null = null;
+    let shortcutStartTime = 0;
+    let shortcutArmed = true;
+    let shortcutNeutralFrames = 0;
     // Posture tracking state
     let badSince = 0;
     let shownPosture = "";
@@ -137,14 +153,14 @@ export function useGesturePosture({
               video,
               now
             ).landmarks ?? [];
-          // Check whether four fingers are
-          // clearly extended.
-          const hand = hands.find((points) => {
+          // Check each finger relative to its knuckle and wrist, independent
+          // of which way the hand is rotated in the camera frame.
+          const extendedFingers = (points: Point[]) => {
             const wrist = points[0];
-            if (!wrist) return false;
+            if (!wrist) return null;
             const tips = [8, 12, 16, 20];
             const middle = [6, 10, 14, 18];
-            return tips.every((tip, i) => {
+            return tips.map((tip, i) => {
               const tipPoint = points[tip];
               const middlePoint = points[middle[i]];
               if (!tipPoint || !middlePoint) {
@@ -158,16 +174,55 @@ export function useGesturePosture({
                 middlePoint.x - wrist.x,
                 middlePoint.y - wrist.y
               );
-              return (
-                tipDistance >
-                middleDistance * 1.15
-              );
+              return tipDistance > middleDistance * 1.15;
             });
-          });
+          };
+          const visibleHand = hands[0] as Point[] | undefined;
+          const fingers = visibleHand ? extendedFingers(visibleHand) : null;
+          const isOpenPalm = fingers?.every(Boolean) ?? false;
+          const shortcut: "one" | "two" | null = !fingers || isOpenPalm
+            ? null
+            : fingers[0] && !fingers[1] && !fingers[2] && !fingers[3]
+              ? "one"
+              : fingers[0] && fingers[1] && !fingers[2] && !fingers[3]
+                ? "two"
+                : null;
+          // The palm-turn gesture and finger shortcuts are mutually exclusive.
+          if (shortcut) {
+            currentZone = null;
+            zoneStartTime = 0;
+            handMissing = 0;
+            shortcutNeutralFrames = 0;
+            if (!shortcutArmed) {
+              setStatus("Shortcut saved · lower your hand to rearm");
+            } else {
+              if (shortcutCandidate !== shortcut) {
+                shortcutCandidate = shortcut;
+                shortcutStartTime = now;
+              }
+              const heldMs = now - shortcutStartTime;
+              setStatus(`${shortcut === "one" ? "☝ Highlight gaze row" : "✌ Save gaze row as note"} · ${Math.min(100, Math.round(heldMs / SHORTCUT_HOLD_MS * 100))}%`);
+              if (heldMs >= SHORTCUT_HOLD_MS) {
+                if (shortcut === "one") callbackRef.current.onHighlight();
+                else callbackRef.current.onNote();
+                shortcutArmed = false;
+                shortcutCandidate = null;
+                setStatus(shortcut === "one" ? "ROW HIGHLIGHTED · lower hand" : "NOTE SAVED · lower hand");
+              }
+            }
+          } else {
+            shortcutCandidate = null;
+            shortcutStartTime = 0;
+            shortcutNeutralFrames++;
+            if (shortcutNeutralFrames >= SHORTCUT_REARM_FRAMES) shortcutArmed = true;
+          }
+          const hand = isOpenPalm ? visibleHand : undefined;
           // ==================================
           // No open hand detected
           // ==================================
-          if (!hand) {
+          if (shortcut) {
+            // The shortcut handler above owns the status and rearm sequence.
+          } else if (!hand) {
             handMissing++;
             // A brief tracking dropout cancels the hold but cannot rearm.
             currentZone = null;

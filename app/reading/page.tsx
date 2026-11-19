@@ -450,6 +450,30 @@ export default function SingleBookReadingInterface() {
     setClauseMenuOpen(false);
   }, [getActiveSentenceText, pageIdx, showToast]);
 
+  // Finger shortcuts act on the row currently selected by gaze tracking.
+  // Adding (rather than toggling) highlights prevents accidental removal.
+  const highlightGazeRow = useCallback(() => {
+    const row = pages[pageIdx]?.[activeLineIdx];
+    if (!row?.segments.length) return;
+    setHighlightedClauses((previous) => {
+      const next = new Set(previous);
+      row.segments.forEach((segment) => next.add(segment.clauseId));
+      return next;
+    });
+    setClauseMenuOpen(false);
+    showToast("Row Highlighted", `Page ${pageIdx + 1} · Row ${activeLineIdx + 1}`);
+  }, [pages, pageIdx, activeLineIdx, showToast]);
+
+  const noteGazeRow = useCallback(() => {
+    const row = pages[pageIdx]?.[activeLineIdx];
+    const text = row?.segments.map((segment) => segment.text).join(" ").trim();
+    if (!text) return;
+    const note = `[Quote P${pageIdx + 1} Row ${activeLineIdx + 1}] ${text}`;
+    setNotesList((previous) => previous.includes(note) ? previous : [note, ...previous]);
+    setClauseMenuOpen(false);
+    showToast("Row Saved to Notes", `Page ${pageIdx + 1} · Row ${activeLineIdx + 1}`);
+  }, [pages, pageIdx, activeLineIdx, showToast]);
+
   const handleFileUpload = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -593,6 +617,61 @@ export default function SingleBookReadingInterface() {
   }, [pageIdx, pages, setPageIdx, setActiveLineIdx, setActiveClauseId]);
 
   const [motionEnabled, setMotionEnabled] = useState(false);
+  const [motionPanelCollapsed, setMotionPanelCollapsed] = useState(false);
+  const [motionPanelPosition, setMotionPanelPosition] = useState({ x: 12, y: 64 });
+  const motionPanelRef = useRef<HTMLElement | null>(null);
+  const motionPanelDragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    panelX: number;
+    panelY: number;
+  } | null>(null);
+
+  const beginMotionPanelDrag = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    motionPanelDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      panelX: motionPanelPosition.x,
+      panelY: motionPanelPosition.y,
+    };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }, [motionPanelPosition]);
+
+  const moveMotionPanel = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    const drag = motionPanelDragRef.current;
+    if (!drag || event.pointerId !== drag.pointerId) return;
+    const panelWidth = motionPanelRef.current?.offsetWidth ?? 256;
+    const panelHeight = motionPanelRef.current?.offsetHeight ?? 220;
+    const maxX = Math.max(8, window.innerWidth - panelWidth - 8);
+    const maxY = Math.max(8, window.innerHeight - panelHeight - 8);
+    setMotionPanelPosition({
+      x: Math.max(8, Math.min(maxX, drag.panelX + event.clientX - drag.startX)),
+      y: Math.max(8, Math.min(maxY, drag.panelY + event.clientY - drag.startY)),
+    });
+  }, []);
+
+  const endMotionPanelDrag = useCallback((event: React.PointerEvent<HTMLButtonElement>) => {
+    if (motionPanelDragRef.current?.pointerId !== event.pointerId) return;
+    motionPanelDragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
+
+  const toggleMotionPanel = useCallback(() => {
+    const expanding = motionPanelCollapsed;
+    setMotionPanelCollapsed(!motionPanelCollapsed);
+    if (expanding) {
+      setMotionPanelPosition((position) => ({
+        x: Math.max(8, Math.min(position.x, window.innerWidth - 264)),
+        y: Math.max(8, Math.min(position.y, window.innerHeight - 280)),
+      }));
+    }
+  }, [motionPanelCollapsed]);
   const {
     status: handStatus,
     posture: postureStatus,
@@ -604,6 +683,8 @@ export default function SingleBookReadingInterface() {
     enabled: motionEnabled && !noCameraMode,
     onPrev: handlePagePrev,
     onNext: handlePageNext,
+    onHighlight: highlightGazeRow,
+    onNote: noteGazeRow,
   });
 
   const voiceSnapshotRef = useRef<ReaderSnapshot | null>(null);
@@ -764,23 +845,32 @@ export default function SingleBookReadingInterface() {
       )}
 
       {/* Gesture + Posture Control Panel */}
-      <div className="fixed right-3 bottom-20 z-40 w-64 rounded-xl border border-stone-300 bg-white/95 text-stone-900 shadow-lg p-3 text-xs space-y-2 select-text">
+      <section ref={motionPanelRef} aria-label="Hand gesture and posture controls" style={{ left: motionPanelPosition.x, top: motionPanelPosition.y }} className={`fixed z-40 rounded-xl border border-stone-300 bg-white/95 text-stone-900 shadow-lg text-xs select-text ${motionPanelCollapsed ? "p-2" : "w-64 p-3 space-y-2"}`}>
         <div className="flex items-center justify-between gap-2">
-          <strong>Hand + Posture</strong>
-          <button type="button" className="rounded bg-stone-800 text-white px-2 py-1" onClick={() => setMotionEnabled((value) => !value)}>
-            {motionEnabled ? "Stop" : "Start"}
+          <button type="button" title="Drag to move" aria-label="Drag gesture panel" onPointerDown={beginMotionPanelDrag} onPointerMove={moveMotionPanel} onPointerUp={endMotionPanelDrag} onPointerCancel={endMotionPanelDrag} className="cursor-grab touch-none rounded px-2 py-1 font-bold text-stone-500 hover:bg-stone-100 active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-stone-800">
+            ⠿
           </button>
+          <button type="button" aria-expanded={!motionPanelCollapsed} aria-label={motionPanelCollapsed ? "Expand gesture panel" : "Hide gesture panel"} onClick={toggleMotionPanel} className="rounded px-2 py-1 font-semibold hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-stone-800">
+            {motionPanelCollapsed ? ` Gesture ${motionEnabled ? "●" : "○"} ▾` : " Hand + Posture ▴"}
+          </button>
+          {!motionPanelCollapsed && (
+            <button type="button" className="rounded bg-stone-800 text-white px-2 py-1" onClick={() => setMotionEnabled((value) => !value)}>
+              {motionEnabled ? "Stop" : "Start"}
+            </button>
+          )}
         </div>
-        <div className="break-words">Hand: {handStatus}</div>
-        <div role="status" className={hasPostureWarning ? "font-bold text-red-700" : ""}>Posture: {postureStatus}</div>
-        <div className="text-[10px] text-stone-500 break-words">{postureDebug}</div>
-        <button type="button" className="rounded border border-stone-400 px-2 py-1 disabled:opacity-40" disabled={!motionEnabled || noCameraMode} onClick={calibratePosture}>
-          {postureBaseline ? "Recalibrate upright posture" : "Calibrate upright posture"}
-        </button>
-        <p className="text-[10px] text-stone-600">
-          Open palm in the right zone: next page; left zone: previous page. Hold for 0.4s. Posture alerts are approximate.
-        </p>
-      </div>
+        {!motionPanelCollapsed && (
+          <>
+            <div className="break-words">Hand: {handStatus}</div>
+            <div role="status" className={hasPostureWarning ? "font-bold text-red-700" : ""}>Posture: {postureStatus}</div>
+            <div className="text-[10px] text-stone-500 break-words">{postureDebug}</div>
+            <button type="button" className="rounded border border-stone-400 px-2 py-1 disabled:opacity-40" disabled={!motionEnabled || noCameraMode} onClick={calibratePosture}>
+              {postureBaseline ? "Recalibrate upright posture" : "Calibrate upright posture"}
+            </button>
+            <p className="text-[10px] text-stone-600">Open palm: right = next page, left = previous page. ☝ Hold one finger to highlight the gaze row; ✌ hold two fingers to save it to Notes. Lower your hand between actions.</p>
+          </>
+        )}
+      </section>
 
       <canvas
         ref={fullHeatmapCanvasRef}

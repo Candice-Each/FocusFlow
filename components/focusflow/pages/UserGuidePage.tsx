@@ -59,16 +59,14 @@ export function UserGuidePage() {
   const [eyeSimLog, setEyeSimLog] = useState("Select a feature to explore.");
 
   const gestureItems = [
-    { name: "Swipe up", desc: "Move down the page", badgeText: "Swipe up",
-      detail: "A complete upward hand sweep scrolls the active passage down smoothly." },
-    { name: "Swipe down", desc: "Move up the page", badgeText: "Swipe down",
-      detail: "A complete downward hand sweep returns to the upper passage." },
-    { name: "Left or right", desc: "Previous or next chapter", badgeText: "Chapter Sweep",
-      detail: "Swiping horizontally switches between the previous or next chapter." },
-    { name: "Pinch and drag", desc: "Adjust reading width", badgeText: "Pinch & Drag",
-      detail: "Pinch thumb and index finger to fine-tune the reading column margin." },
-    { name: "Open palm", desc: "Pause or summon menu", badgeText: "Open Palm",
-      detail: "Hold an open palm steady inside the zone to pause timing or open quick actions." },
+    { name: "Open palm · right", desc: "Turn to the next page", badgeText: "Next Page",
+      detail: "Hold four extended fingers in the RIGHT third of the mirrored camera view for about 0.4 seconds. Lower your hand before turning again." },
+    { name: "Open palm · left", desc: "Go to the previous page", badgeText: "Previous Page",
+      detail: "Hold an open palm in the LEFT third of the camera view for about 0.4 seconds. The center zone does not flip pages." },
+    { name: "☝ One finger", desc: "Highlight the row you are looking at", badgeText: "Gaze Row Highlighted",
+      detail: "Look at a reading row, then raise ONLY your index finger for about 0.55 seconds. The currently gaze-selected row is saved as a highlight." },
+    { name: "✌ Two fingers", desc: "Save the gaze row to Notes", badgeText: "Note Saved",
+      detail: "Look at a row and hold your index and middle fingers up for about 0.55 seconds. The row text is added to Notes; use the Notes button to read it. Lower your hand between actions." },
   ];
 
   const eyeItems = [
@@ -149,8 +147,8 @@ export function UserGuidePage() {
 
   const headerConfig = {
     Gesture: {
-      title: "What the hand does",
-      subtitle: "Only a finished gesture is counted. Halfway movement is ignored so the page stays calm.",
+      title: "Hands + gaze, working together",
+      subtitle: "Start Hand + Posture from the floating panel. Drag its ⠿ handle to move it, or tap the title to shrink it. Gaze chooses the row; one finger highlights it and two fingers save a note. Lower your hand between gestures.",
     },
     Posture: {
       title: "Return to upright",
@@ -204,7 +202,7 @@ export function UserGuidePage() {
       {subTab === "Gesture" && (
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           <div className="md:col-span-7 bg-white rounded-2xl border border-stone-200/90 p-6 shadow-sm">
-            <h3 className="text-xs font-semibold text-stone-800 mb-4">Spatial gestures</h3>
+            <h3 className="text-xs font-semibold text-stone-800 mb-4">Available hand gestures</h3>
             <div className="space-y-2.5">
               {gestureItems.map((item, idx) => {
                 const isSelected = selectedGestureIdx === idx;
